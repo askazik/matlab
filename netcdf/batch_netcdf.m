@@ -25,16 +25,19 @@ try
     prevEnd = 0;
     prevFile = '';
     key_new_group = true;
+    old_day_number = -1;
+    day_number = 0;
     for i = 1:length(dirlist)
         unit = dirlist(i);
         if unit.bytes == 0 % пропускаем файлы нулевого размера
             continue
         end
         
-        begTime = getTimeFromFName(unit.name);
+        [begTime, dayTime] = getTimeFromFName(unit.name);
         dT = dt * (unit.bytes/2 - 1) / s_in_day; % длительность файла в сутках
         endTime = begTime + dT;
         
+        disp([num2str(i),'. ',unit.name])
         if prevEnd > 0 % определение разрыва оси времени
             cur_delay = (begTime - prevEnd) * s_in_day;
             if abs(cur_delay) > 10
@@ -44,8 +47,14 @@ try
         end
         
         % создание новой группы при наличие разрыва времени
+        day_number = day(dayTime,'dayofyear');
+        if key_new_group || old_day_number ~= day_number
+            key_new_group = true;
+        else
+            key_new_group = false;
+        end
         if key_new_group
-            group_name = datestr(begTime,'yyyy-mm-dd_HH-MM-SS');
+            group_name = datestr(begTime,'yyyy-mm-dd');
             childGroupId = netcdf.defGrp(ncid,group_name);
             % define dimensions
             time_dimid = netcdf.defDim(childGroupId,'time',netcdf.getConstant('NC_UNLIMITED'));
@@ -55,7 +64,7 @@ try
             % Leave define mode and enter data mode to write data.
             netcdf.endDef(childGroupId);
             
-            key_new_group = false;
+            old_day_number = day_number;
             start = 0;
         end
         
@@ -67,7 +76,8 @@ try
             fclose(fid);
         end
         count = length(ampl);
-        netcdf.putVar(childGroupId,varid,start,count,ampl)
+        netcdf.putVar(childGroupId,varid,start,count,ampl);
+        netcdf.sync(ncid);
         start = start + count;
         
         prevEnd = endTime;
@@ -81,7 +91,7 @@ end
 netcdf.close(ncid)
 ncdisp([workdir, '\directory.nc'])
 
-function begTime = getTimeFromFName(fname)
+function [begTime, t] = getTimeFromFName(fname)
 % Извлечение даты выборки из имени файла
 
 % Год
@@ -106,4 +116,5 @@ min = str2num(fname(10:11));
 % Выделим десятки секунд
 sec = 6 * str2num(fname(12));
                     
-begTime = datenum(year, month, day, hour, min, sec);        
+begTime = datenum(year, month, day, hour, min, sec);
+t = datetime(year, month, day)
