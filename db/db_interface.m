@@ -218,7 +218,7 @@ end
     
     pos = get(gca,'Position');
     ax = axes('XLim',[cur.freq_min cur.freq_max]/1000,'YLim',[cur.height_min, cur.height_max]/1000,...
-                'Tag','axMain','Position',pos,'Color','none','DrawMode','fast','Box','on',...
+                'Tag','axMain','Position',pos,'Color','none','Box','on',...
                 'FontSize',16,'FontWeight','bold');
     set(gca,'FontName','FixedWidth','FontSize',12);
     grid on
@@ -428,7 +428,7 @@ function plotIRI(varargin)
 global data data_proc 
 
 index_selected = int32(get(findobj('Tag','listboxDate'),'Value'));
-dat = data(index_selected,:);
+dat = data.Data(index_selected,:);
 
 alati = dat{3};
 along = dat{4};
@@ -712,7 +712,7 @@ set(handles.listboxDate, 'String', data.Data(:,2)');
 key = data.Data{get(handles.listboxDate, 'Value'),1};
 plotRow(key);
 loadDBContour();
-%plotIRI();
+plotIRI();
 plotEDP();
 
 
@@ -767,7 +767,6 @@ function listboxDate_Callback(hObject, eventdata, handles)
 %        contents{get(hObject,'Value')} returns selected item from listboxDate
 global data
 
-
 ccursor = get(gcf,'Pointer');
 set(gcf,'Pointer','watch');
 
@@ -780,8 +779,13 @@ if strcmp(get(findobj('Tag','itmnu_FromDB'),'Checked'),'on')
 end
 
 if strcmp(get(findobj('Tag','itmnu_IRI'),'Checked'),'on')
-%    plotIRI();
+    plotIRI();
     plotEDP();
+end
+
+% Отработка включенной легенды
+if strcmp(get(findobj('Tag','uitoggletoolLegend'),'State'),'on')
+    uitoggletoolLegend_OnCallback(hObject, eventdata, handles);
 end
 
 set(gcf,'Pointer',ccursor);

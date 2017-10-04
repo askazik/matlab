@@ -1,0 +1,279 @@
+function [hmax, ym, foF2] = iri_test%(mlat, mlong, year, mmdd, LT)
+
+mlat = 30;
+mlong = 40;
+year = '2017';
+mmdd = '0101';
+LT = 12;
+
+jmag = int8(0); % 0/1,geog/geom
+%    JF switches to turn off/on (.true./.false.) several options
+%
+%    i       .true.                  .flase.          standard version
+%    -----------------------------------------------------------------
+%    1    Ne computed            Ne not computed                     t
+%    2    Te, Ti computed        Te, Ti not computed                 t
+%    3    Ne & Ni computed       Ni not computed                     t
+%    4    B0 - Table option      B0 - Gulyaeva (1987)                t
+%    5    foF2 - CCIR            foF2 - URSI                     false
+%    6    Ni - DS-78 & DY-85     Ni - DS-95 & TTS-03             false
+%    7    Ne - Tops: f10.7<188   f10.7 unlimited                     t            
+%    8    foF2 from model        foF2 or NmF2 - user input           t
+%    9    hmF2 from model        hmF2 or M3000F2 - user input        t
+%   10    Te - Standard          Te - Using Te/Ne correlation        t
+%   11    Ne - Standard Profile  Ne - Lay-function formalism         t
+%   12    Messages to unit 6     no messages                         t
+%   13    foF1 from model        foF1 or NmF1 - user input           t
+%   14    hmF1 from model        hmF1 - user input (only Lay version)t
+%   15    foE  from model        foE or NmE - user input             t
+%   16    hmE  from model        hmE - user input                    t
+%   17    Rz12 from file         Rz12 - user input                   t
+%   18    IGRF dip, magbr, modip old FIELDG using POGO68/10 for 1973 t
+%   19    F1 probability model   critical solar zenith angle (old)   t
+%   20    standard F1            standard F1 plus L condition        t
+%   21    ion drift computed     ion drift not computed          false
+%   22    ion densities in %     ion densities in m-3                t
+%   23    Te_tops (Aeros,ISIS)   Te_topside (Intercosmos)        false
+%   24    D-region: IRI-95       Special: 3 D-region models          t
+%   25    F107D from AP.DAT      F107D user input (oarr(41))         t
+%   26    foF2 storm model       no storm updating                   t
+%   27    IG12 from file         IG12 - user input					 t
+%   28    spread-F probability 	 not computed                    false
+%   29    IRI01-topside          new options as def. by JF(30)   false
+%   30    IRI01-topside corr.    NeQuick topside model   	     false 
+%     (29,30) = (t,t) IRIold, (f,t) IRIcor, (f,f) NeQuick, (t,f) TTS   
+%   ------------------------------------------------------------------
+%
+%  Depending on the jf() settings additional INPUT parameters may 
+%  be required:
+%
+%       Setting              INPUT parameter
+%    -----------------------------------------------------------------
+%    jf(8)  =.false.     OARR(1)=user input for foF2/MHz or NmF2/m-3
+%    jf(9)  =.false.     OARR(2)=user input for hmF2/km or M(3000)F2
+%    jf(10 )=.false.     OARR(15),OARR(16)=user input for Ne(300km),
+%       Ne(400km)/m-3. Use OARR()=-1 if one of these values is not 
+%       available. If jf(23)=.false. then Ne(300km), Ne(550km)/m-3.
+%    jf(13) =.false.     OARR(3)=user input for foF1/MHz or NmF1/m-3 
+%    jf(14) =.false.     OARR(4)=user input for hmF1/km
+%    jf(15) =.false.     OARR(5)=user input for foE/MHz or NmE/m-3 
+%    jf(16) =.false.     OARR(6)=user input for hmE/km
+%    jf(17) =.flase.     OARR(33)=user input for Rz12
+%    jf(21) =.true.      OARR(41)=user input for daily F10.7 index
+%    jf(23) =.false.     OARR(41)=user input for daily F10.7 index
+%    jf(24) =.false.     OARR(41)=user input for daily F10.7 index
+%          optional for jf(21:24); default is F10.7D=COV
+%    jf(25) =.false.     OARR(41)=user input for daily F10.7 index
+%          if oarr(41).le.0 then 12-month running mean is 
+%          taken from internal file]
+%    jf(27) =.flase.     OARR(39)=user input for IG12
+%    jf(21) =.true.      OARR(41)=user input for daily F10.7 index
+% --------------------------------------------------------------------
+% Standard: t,t,t,t,f,f,t,t,t,t,t,t,t,t,t,t,t,t,t,t,f,t,f,t,t,t,t,f,f,f
+% --------------------------------------------------------------------
+ jf = [1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,0,0,0,...
+     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+%jf = logical([1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,0,0,0]);
+
+% Без корректировки
+jf = [1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,0,0,0,...
+     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+% Тестируем на наличие данных для корректировки.
+% is_foF2 = ~isnan(foF2);
+% is_hmF2 = ~isnan(hmF2); 
+% is_foF1 = ~isnan(foF1); 
+% is_hmF1 = ~isnan(hmF1); 
+% is_foE = ~isnan(foE);
+% is_hmE = ~isnan(hmE);
+% Корректируем вход по наличным данным
+oar = zeros(50,1);
+outf = zeros(1000,20);
+% % fN = sqrt(Ne/(1.24*10^10));
+% if is_foF2
+%     jf(8) = 0;
+%     oar(1,1)= foF2;
+% end
+% if is_hmF2
+%     jf(9) = 0;
+%     oar(2,1)= hmF2;    
+% end
+% if is_foF1
+%     jf(13) = 0;
+%     oar(3,1)= foF1;
+% end
+% if is_hmF1
+%     jf(14) = 0;
+%     oar(4,1)= hmF1;     
+% end
+% if is_foE
+%     jf(15) = 0;
+%     oar(5,1)= foE;      
+% end
+% if is_hmE
+%     jf(16) = 0;
+%     oar(6,1)= hmE;     
+% end
+
+% alati = 30.; % lati/deg
+% along = 30.; % long/deg
+% iyyyy = 2010; % year(yyyy)
+% mmdd = 101; % mmdd(or -ddd)
+alati = mlat; % lati/deg
+along = mlong; % long/deg
+iyyyy = str2num(year); % year(yyyy)
+mmdd = str2num(mmdd); % mmdd(or -ddd)
+
+iut = 0; % iut(=0/1,LT/UT)
+dhour = LT; % hour
+% begin, end, and stepsize for the selected variable
+vbeg = 30.; % начальная высота
+vend = 1000.; % конечная высота
+vstp = 10.;  % шаг по высоте
+
+% [outf,oarr] = iri_web(jmag,jf,alati,along,iyyyy,mmdd,iut,dhour,...
+%                         vbeg,vend,vstp);
+        
+% height/km
+% (enter  0 for list of peak heights and densities)
+% (enter -1 for plasma frequencies, B0, M3000, valley, width and depth,)
+% (         F1 probability, equatorial vertical ion drift, and)
+% (         foF2 storm/quiet ratio, or 3 parameter of your choice)
+height = 0;
+h_tec_max = 0.; %upper height [km] for TEC integration (0 for no TEC)                    
+ivar = 1; % variable? (1/2/../8 for height/lat/long/year/month/day/day of year/hour)
+
+% Загрузка dll
+loadlibrary('iri','iri.h')
+if ~libisloaded('iri')
+   loadlibrary('iri')
+end
+
+in_struct.jf = int8(jf);
+in_struct.jmag = int8(jmag);
+in_struct.alati = single(alati);
+in_struct.along = single(along);
+in_struct.iyyyy = int8(iyyyy);
+in_struct.mmdd = int8(mmdd);
+in_struct.iut = int8(iut);
+in_struct.dhour = single(dhour);
+in_struct.height = single(height);
+%in_struct.h_tec_max = h_tec_max;
+in_struct.ivar = int8(ivar);
+in_struct.vbeg = single(vbeg);
+in_struct.vend = single(vend);
+in_struct.vstp = single(vstp);
+in_struct.outf = single(outf);
+in_struct.oar = single(oar);
+
+% void iri(int [], int *JMAG, float *ALATI, float *ALONG,
+% 				   int *IYYYY, int *MMDD, int *IUT, float *DHOUR,
+% 				   float *HEIGHT, int *IVAR,
+% 				   float *HEIBEG, float *HEIEND, float *HEISTP,
+% 				   float [][20], float []);
+calllib('iri','iri', in_struct);
+
+% Выгрузка
+unloadlibrary('iri')
+       
+        
+% =========================================================================
+% Вывод:
+% =========================================================================
+%  OUTPUT:  OUTF(1:20,1:100)
+%               OUTF(1,*)  ELECTRON DENSITY/M-3
+%               OUTF(2,*)  NEUTRAL TEMPERATURE/K
+%               OUTF(3,*)  ION TEMPERATURE/K
+%               OUTF(4,*)  ELECTRON TEMPERATURE/K
+%               OUTF(5,*)  O+ ION DENSITY/% or /M-3 if jf(22)=f 
+%               OUTF(6,*)  H+ ION DENSITY/% or /M-3 if jf(22)=f
+%               OUTF(7,*)  HE+ ION DENSITY/% or /M-3 if jf(22)=f
+%               OUTF(8,*)  O2+ ION DENSITY/% or /M-3 if jf(22)=f
+%               OUTF(9,*)  NO+ ION DENSITY/% or /M-3 if jf(22)=f
+%                 AND, IF JF(6)=.FALSE.:
+%               OUTF(10,*)  CLUSTER IONS DEN/% or /M-3 if jf(22)=f
+%               OUTF(11,*)  N+ ION DENSITY/% or /M-3 if jf(22)=f
+%               OUTF(12,*)  
+%               OUTF(13,*)  D/E-region densities (Friedrich)
+%               OUTF(14,*)  1:7 Danilov for 60,65..90km; 8:14 for a
+%                  major Stratospheric Warming (SW=1) event; 15:21 
+%                  for strong Winter Anomaly (WA=1) conditions
+%               OUTF(15-20,*)  free
+% =========================================================================
+%            OARR(1:50)   ADDITIONAL OUTPUT PARAMETERS         
+%
+%      #OARR(1) = NMF2/M-3           #OARR(2) = HMF2/KM
+%      #OARR(3) = NMF1/M-3           #OARR(4) = HMF1/KM
+%      #OARR(5) = NME/M-3            #OARR(6) = HME/KM
+%       OARR(7) = NMD/M-3             OARR(8) = HMD/KM
+%       OARR(9) = HHALF/KM            OARR(10) = B0/KM
+%       OARR(11) =VALLEY-BASE/M-3     OARR(12) = VALLEY-TOP/KM
+%       OARR(13) = TE-PEAK/K          OARR(14) = TE-PEAK HEIGHT/KM
+%      #OARR(15) = TE-MOD(300KM)     #OARR(16) = TE-MOD(400KM)/K
+%       OARR(17) = TE-MOD(600KM)      OARR(18) = TE-MOD(1400KM)/K
+%       OARR(19) = TE-MOD(3000KM)     OARR(20) = TE(120KM)=TN=TI/K
+%       OARR(21) = TI-MOD(430KM)      OARR(22) = X/KM, WHERE TE=TI
+%       OARR(23) = SOL ZENITH ANG/DEG OARR(24) = SUN DECLINATION/DEG
+%       OARR(25) = DIP/deg            OARR(26) = DIP LATITUDE/deg
+%       OARR(27) = MODIFIED DIP LAT.  OARR(28) = DELA
+%       OARR(29) = sunrise/dec. hours OARR(30) = sunset/dec. hours
+%       OARR(31) = ISEASON (1=spring) OARR(32) = NSEASON (northern)
+%      #OARR(33) = Rz12               OARR(34) = Covington Index
+%       OARR(35) = B1                 oarr(36) = M(3000)F2
+%      $oarr(37) = TEC/m-2           $oarr(38) = TEC_top/TEC*100.
+%      #OARR(39) = gind (IG12)        oarr(40) = F1 probability (old)
+%      #OARR(41) = F10.7 daily        oarr(42) = c1 (F1 shape)
+%       OARR(43) = daynr
+%       OARR(44) = equatorial vertical ion drift in m/s
+%       OARR(45) = foF2_storm/foF2_quiet
+%       OARR(46) = F1 probability without L condition 
+%       OARR(47) = F1 probability with L condition incl.
+%       OARR(48) = spread-F occurrence probability (Brazilian model)
+%                # INPUT as well as OUTPUT parameter
+%                $ special for IRIWeb (only place-holders
+% =========================================================================
+
+outf = double(outf);
+oarr = double(oarr);
+h = double(vbeg):double(vstp):double(vend);
+Ne = double(outf(1,1:length(h)));
+% plot(log10(Ne),h);
+%     grid on
+%     title('lg(N_e(h)), 1/m^{-3}')
+fN = sqrt(Ne/1.24)*10^(-5);
+foF2 = sqrt(oarr(1)/1.24)*10^(-5);
+% b0 = oarr(10);
+% HHALF=oarr(9); 
+% ym = b0;
+
+% hmin = oarr(2) - b0;
+% N = 25;
+% dh = b0/N;
+% h1 = hmin:dh:hmax;
+% fN1 = foF2 * sqrt(1-((hmax-h1)./b0).^2);
+
+hmax = oarr(2);
+ind = find(fN==max(fN));
+fNm = fN(1:ind);
+hm = h(1:ind);
+A = sqrt(1-(fNm./foF2).^2);
+z = (hmax - hm);
+W = 1 - (z./(hmax - hm(1))).^2;
+WA = W.*A;
+Wz = W.*z;
+B = A*WA';
+ym = inv(B)*A*Wz';
+% hmin = oarr(2) - ym;
+% N = 25;
+% dh = ym/N;
+% h2 = hmin:dh:hmax;
+% fN2 = foF2 * sqrt(1-((hmax-h2)./ym).^2);
+% 
+% figure('NumberTitle','off','Name',['IRI 2001: hmF2=',num2str(oarr(2)),...
+%         ' km, foF2=',num2str(foF2),' MHz, lat_m=',num2str(double(alati)),...
+%         ' ym=',num2str(ym)]);
+% plot(fN,h,'-k',fN2,h2,':k') 
+% xlabel('f_N, MHz')
+% ylabel('h, km')
+% % legend('IRI-2001','parabola'); 
+% grid on
+% title('f_N(h), MHz')
