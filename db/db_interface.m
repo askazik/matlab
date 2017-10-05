@@ -28,13 +28,14 @@ function varargout = db_interface(varargin)
 
 % Edit the above text to modify the response to help db_interface
 
-% Last Modified by GUIDE v2.5 04-Oct-2017 01:23:48
+% Last Modified by GUIDE v2.5 05-Oct-2017 16:31:43
 
 %% Инициализации интерфейса
 
 % Begin initialization code - DO NOT EDIT
 global dbName user password
 global connection data data_proc
+global last_saved_mat % последний сохраненный файл MAT
 
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
@@ -141,6 +142,9 @@ while i < n
         SignalResponse = readSignalResponse(data,i);
         i = i + 6;
         
+        if i + SignalResponse.count_samples-1 > n % если блок битый?
+            break;
+        end
         arr_o = FrequencyData.thereshold_o + typecast(data(i:i+SignalResponse.count_samples-1), 'uint8');
         % Определим номер начальной высоты
         j = 1 + (SignalResponse.height_begin - uint32(cur.height_min))/uint32(cur.height_step);
@@ -154,6 +158,9 @@ while i < n
         SignalResponse = readSignalResponse(data,i);
         i = i + 6;
         
+        if i + SignalResponse.count_samples-1 > n % если блок битый?
+            break;
+        end
         arr_x = FrequencyData.thereshold_x + typecast(data(i:i+SignalResponse.count_samples-1), 'uint8');
         % Определим номер начальной высоты
         j = 1 + (SignalResponse.height_begin - uint32(cur.height_min))/uint32(cur.height_step);
@@ -432,9 +439,9 @@ dat = data.Data(index_selected,:);
 
 alati = dat{3};
 along = dat{4};
-vbeg = double(dat{5})/1000.;
+vbeg = 80; % double(dat{5})/1000.;
 vend = double(dat{6})/1000.;
-vstp = double(dat{7})/1000.;
+vstp = 5; % double(dat{7})/1000.;
 timesound = dat{2};
 iyyyy = str2num(timesound(1:4));
 mmdd = str2num([timesound(6:7),timesound(9:10)]);
@@ -497,12 +504,15 @@ end
 
 [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
                     foF2, hmF2, foF1, hmF1, foE, hmE);
+% C      #OARR(1) = NMF2/M-3           #OARR(2) = HMF2/KM
+fmF2 = sqrt(oarr(1)/(1.24*10^10));
+hmF2 = oarr(2);
 
 Ne(find(Ne<0)) = 0;
 
 fN = round(sqrt(Ne/(1.24*10^10))' * 100)/100;
 
-keyobj = findobj('Tag','IRI2012');
+keyobj = findobj('Tag','IRI2016');
 if ~isempty(keyobj)
     delete(keyobj)
 end
@@ -513,7 +523,9 @@ if ~isempty(keyobj)
 end
 
 % Отрисовка плазменной частоты
-line(fN,h,'Tag','IRI2012','Color','k','LineWidth',2,'DisplayName','IRI-2012');
+line(double(fN),double(h),'Tag','IRI2016','Color','k','LineWidth',2,'DisplayName','IRI-2016');
+% Отрисовка точки максимума
+line(double(fmF2),double(hmF2),'Tag','IRI2016-F2max','Color','k','LineWidth',2,'Marker','o','DisplayName','IRI-2016 F2m');
 
 
 function plotEDP()
@@ -688,6 +700,7 @@ lst_years = data.Data(:,1);
 n_lst_years = length(lst_years);
 set(handles.popupmenuYear, 'String', lst_years);
 set(handles.popupmenuYear, 'Value', n_lst_years);
+close(curs);
 
 % Найдём все месяцы в последнем годе
 query = join(string({'select distinct MONTHNAME(time_sound), month(time_sound) from ionosphere.parus where year(time_sound) = ',...
@@ -700,6 +713,7 @@ numbers_months = data.Data(:,2);
 n_lst_months = length(lst_months);
 set(handles.popupmenuMonth, 'String', lst_months);
 set(handles.popupmenuMonth, 'Value', n_lst_months);
+close(curs);
 
 query = join(string({...
     'SELECT iono_key, time_sound, latitude, longitude, height_min, height_max, height_step, station_id FROM parus ',...
@@ -707,6 +721,7 @@ query = join(string({...
     'MONTH(time_sound) = ', num2str(numbers_months{n_lst_months}), ' ORDER BY time_sound'}));
 curs = exec(connection, char(query));
 data = get(fetch(curs));
+close(curs);
 
 set(handles.listboxDate, 'String', data.Data(:,2)');
 key = data.Data{get(handles.listboxDate, 'Value'),1};
@@ -864,13 +879,17 @@ isChecked = get(hObject,'Checked');
 if strcmp(isChecked,'on')
     set(hObject,'Checked','off');
     
-    keyobj = findobj('Tag','IRI2011');
-    if keyobj
+    keyobj = findobj('Tag','IRI2016');
+    if ~isempty(keyobj)
+        delete(keyobj)
+    end
+    keyobj = findobj('Tag','IRI2016-F2max');
+    if ~isempty(keyobj)
         delete(keyobj)
     end
 else
     set(hObject,'Checked','on');
-    plotIRI();
+    plotIRI(1);
 end
 
 
@@ -884,7 +903,7 @@ if strcmp(isChecked,'on')
     set(hObject,'Checked','off');
     
     keyobj = findobj('Tag','EDP');
-    if keyobj
+    if ~isempty(keyobj)
         delete(keyobj)
     end
 else
@@ -902,7 +921,7 @@ if strcmp(isChecked,'on')
     set(hObject,'Checked','off');
     
     keyobj = findobj('Tag','NIIF');
-    if keyobj
+    if ~isempty(keyobj)
         delete(keyobj)
     end
 
@@ -1094,15 +1113,15 @@ rstr = [];
 escape_arr = [0, 10, 13, 92, 39, 34, 26];
 add_sumb = 92; % '0x5C';
 
-if n > 0,
-    for i=1:n,
+if n > 0
+    for i=1:n
         must_add = 0;
-        for j = 1:7,
-            if data(i) == escape_arr(j),
+        for j = 1:7
+            if data(i) == escape_arr(j)
                 must_add = 1;
             end
         end
-        if must_add,
+        if must_add
             rstr = horzcat(rstr,add_sumb,data(i));
         else
             rstr = horzcat(rstr,data(i));
@@ -1641,7 +1660,7 @@ ddata = fetch(curs);
 data = ddata.Data;
 
 
-function changeYearMonth()
+function changeYearMonthDay()
 global connection data
 
 years = get(findobj('Tag','popupmenuYear'), 'String');
@@ -1653,8 +1672,10 @@ query = join(string({...
     'SELECT iono_key, time_sound, latitude, longitude, height_min, height_max, height_step, station_id FROM parus ',...
     'WHERE YEAR(time_sound) = ', cur_year, ' AND ',...
     'MONTHNAME(time_sound) = ', strcat('''',cur_month,''''), ' ORDER BY time_sound'}));
+
 curs = exec(connection, char(query));
 data = get(fetch(curs));
+close(curs);
 
 set(findobj('Tag','listboxDate'), 'String', data.Data(:,2)');
 key = data.Data{get(findobj('Tag','listboxDate'), 'Value'),1};
@@ -1761,10 +1782,26 @@ function popupmenuYear_Callback(hObject, eventdata, handles)
 % hObject    handle to popupmenuYear (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
+global connection
 % Hints: contents = cellstr(get(hObject,'String')) returns popupmenuYear contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popupmenuYear
-changeYearMonth();
+
+lst_years = get(hObject, 'String');
+n_lst_years = get(hObject, 'Value');
+
+% Найдём все месяцы в последнем годе
+query = join(string({'select distinct MONTHNAME(time_sound), month(time_sound) from ionosphere.parus where year(time_sound) = ',...
+    num2str(lst_years{n_lst_years}),...
+    ' ORDER BY 2'}));
+curs = exec(connection, char(query));
+data = get(fetch(curs));
+close(curs);
+lst_months = data.Data(:,1);
+n_lst_months = length(lst_months);
+set(handles.popupmenuMonth, 'String', lst_months);
+set(handles.popupmenuMonth, 'Value', n_lst_months);
+
+changeYearMonthDay();
 
 
 % --- Executes on selection change in popupmenuMonth.
@@ -1775,7 +1812,7 @@ function popupmenuMonth_Callback(hObject, eventdata, handles)
 
 % Hints: contents = cellstr(get(hObject,'String')) returns popupmenuMonth contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popupmenuMonth
-changeYearMonth();
+changeYearMonthDay();
 
 
 % --------------------------------------------------------------------
@@ -1784,6 +1821,7 @@ function itmnu_Save_Real_to_MAT_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 global data data_proc
+global last_saved_mat
 
 % Сохраним данные из БД
 %itmnu_Save_DB_Callback(hObject, eventdata, handles);
@@ -1863,9 +1901,16 @@ trace_F2x = getTrace('trace_F2x');
     end
 profile = getArrayFromBLOB(data_proc.profile);
 
+% Получение профиля по IRI
+tmp = findobj('Tag','IRI2016');
+iri_profile = [get(tmp,'XData')',get(tmp,'YData')'];
+
 save(fname, 'timesound', 'index_selected', 'alati', 'along', ...
-    'trace_Eo', 'trace_F1o', 'trace_F2o', 'trace_Ex', 'trace_F1x', 'trace_F2x', 'profile', ...
+    'trace_Eo', 'trace_F1o', 'trace_F2o', 'trace_Ex', 'trace_F1x', 'trace_F2x', 'profile', 'iri_profile', ...
     'foF2', 'fxF2', 'hmF2', 'foF1', 'hmF1', 'foE', 'hmE', 'foEs');
+
+% Сохраним имя файла для истории
+last_saved_mat = fname;
 
 % --------------------------------------------------------------------
 function uitoggletoolLegend_OffCallback(hObject, eventdata, handles)
@@ -1901,3 +1946,61 @@ for i=1:j
     hs(i) = tmp(1);
 end
 legend(hs, txt{numbers(1:j)});
+
+
+% --- Executes on selection change in popupmenuDay.
+function popupmenuDay_Callback(hObject, eventdata, handles)
+% hObject    handle to popupmenuDay (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popupmenuDay contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popupmenuDay
+changeYearMonthDay()
+
+% --- Executes during object creation, after setting all properties.
+function popupmenuDay_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popupmenuDay (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --------------------------------------------------------------------
+function itmnu_Save_MAT_and_Work_Callback(hObject, eventdata, handles)
+% hObject    handle to itmnu_Save_MAT_and_Work (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global last_saved_mat
+
+% Вначале сохраним MAT-файл для последующей независимой обработки
+itmnu_Save_Real_to_MAT_Callback();
+S = load(last_saved_mat);
+
+% Внешняя процедура обработки
+tmp = S.trace_F2o;
+f = tmp(:,1)';
+hv = tmp(:,2)';
+
+% Подготовим IRI профиль
+tmp = S.iri_profile;
+f_N_tmp = tmp(:,1)';
+h_N_tmp = tmp(:,2)';
+% Определение точки максимума (должна быть отображена на графике)
+obj = findobj('Tag','IRI2016-F2max');
+fmF2 = get(obj,'XData');
+hmF2  = get(obj,'YData');
+% Обрезание по точке максимума
+ind = find(h_N_tmp < hmF2);
+f_N = f_N_tmp(ind);
+h_N = h_N_tmp(ind);
+% Дополним точкой максимума
+f_N = [f_N, fmF2];
+h_N = [h_N, hmF2];
+
+Denisenko_Nigth_Nh_from_hv_IRI_real(f, hv, f_N, h_N, S.timesound);

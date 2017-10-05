@@ -1,7 +1,8 @@
 function [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
                                         foF2, hmF2, foF1, hmF1, foE, hmE)
-% Применение модели IRI2011
-% Корректировка модели по имеющимся foF2, hmF2, foF1, hmF1, foE.
+% Применение модели IRI2016
+% Корректировка модели по имеющимся foF2, foF1, foE.
+% Высоты не отрабатываются!!!!!!!!!!!!!!!
 
 jmag = 0; % 0/1,geog/geom
 %    JF switches to turn off/on (.true./.false.) several options
@@ -75,11 +76,11 @@ jf = [1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,0,0,0,...
      1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
 % Тестируем на наличие данных для корректировки.
 is_foF2 = ~isnan(foF2);
-is_hmF2 = ~isnan(hmF2); 
+is_hmF2 = 0; %~isnan(hmF2); 
 is_foF1 = ~isnan(foF1); 
-is_hmF1 = ~isnan(hmF1); 
+is_hmF1 = 0; %~isnan(hmF1); 
 is_foE = ~isnan(foE);
-is_hmE = ~isnan(hmE);
+is_hmE = 0; %~isnan(hmE);
 % Корректируем вход по наличным данным
 % c =======================================================================
 % c Programs using subroutine IRI_WEB need to include (see IRITEST.FOR):
