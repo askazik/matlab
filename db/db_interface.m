@@ -495,7 +495,7 @@ if (nargin == 1) % данные для расчёта берутся из графика
         end
 end
 
-[Ne,h,outf,oarr] = iri2012cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+[Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
                     foF2, hmF2, foF1, hmF1, foE, hmE);
 
 Ne(find(Ne<0)) = 0;
