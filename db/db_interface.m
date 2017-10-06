@@ -28,7 +28,7 @@ function varargout = db_interface(varargin)
 
 % Edit the above text to modify the response to help db_interface
 
-% Last Modified by GUIDE v2.5 05-Oct-2017 16:31:43
+% Last Modified by GUIDE v2.5 06-Oct-2017 13:12:29
 
 %% Инициализации интерфейса
 
@@ -248,7 +248,7 @@ function FrequencyData = readFrequencyData(indata,idx)
 % indata - данные
 % idx - индех начала строки
 
-data = indata(idx:end);
+data = indata(idx:idx+12);
 FrequencyData = struct(...
     'frequency',typecast(data(1:2), 'uint16'),...
     'gain_control',typecast(data(3:4), 'uint16'),...
@@ -267,7 +267,7 @@ function SignalResponse = readSignalResponse(indata,idx)
 % indata - данные
 % idx - индех начала строки
 
-data = indata(idx:end);
+data = indata(idx:idx+6);
 SignalResponse = struct(...
     'height_begin',typecast(data(1:4), 'uint32'),...
     'count_samples',typecast(data(5:6), 'uint16')...
@@ -502,6 +502,12 @@ if (nargin == 1) % данные для расчёта берутся из графика
         end
 end
 
+% Не используются в расчётах.
+hmF2 = NaN;
+foF1 = NaN;
+hmF1 = NaN;
+foE = NaN;
+hmE = NaN;
 [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
                     foF2, hmF2, foF1, hmF1, foE, hmE);
 % C      #OARR(1) = NMF2/M-3           #OARR(2) = HMF2/KM
@@ -1983,7 +1989,7 @@ itmnu_Save_Real_to_MAT_Callback();
 S = load(last_saved_mat);
 
 % Внешняя процедура обработки
-tmp = S.trace_F2o;
+tmp = flipud(S.trace_F2o);
 f = tmp(:,1)';
 hv = tmp(:,2)';
 
@@ -2003,4 +2009,83 @@ h_N = h_N_tmp(ind);
 f_N = [f_N, fmF2];
 h_N = [h_N, hmF2];
 
-Denisenko_Nigth_Nh_from_hv_IRI_real(f, hv, f_N, h_N, S.timesound);
+H = Denisenko_Nigth_Nh_from_hv_IRI_real(f, hv, f_N, h_N, S.timesound);
+savefig(H,last_saved_mat);
+
+
+% --------------------------------------------------------------------
+function itmnu_Save_MAT_and_Work_Cor_fmE_Callback(hObject, eventdata, handles)
+% hObject    handle to itmnu_Save_MAT_and_Work_Cor_fmE (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global last_saved_mat
+global data data_proc 
+
+index_selected = int32(get(findobj('Tag','listboxDate'),'Value'));
+dat = data.Data(index_selected,:);
+
+alati = dat{3};
+along = dat{4};
+vbeg = 80; % double(dat{5})/1000.;
+vend = double(dat{6})/1000.;
+vstp = 5; % double(dat{7})/1000.;
+timesound = dat{2};
+iyyyy = str2num(timesound(1:4));
+mmdd = str2num([timesound(6:7),timesound(9:10)]);
+
+k = strfind(timesound, ':');
+if k(1) == 13
+    dhour = str2num(timesound(12)) + str2num(timesound(14:15))/60. + str2num(timesound(17:18))/3600.;
+else
+    dhour = str2num(timesound(12:13)) + str2num(timesound(15:16))/60. + str2num(timesound(18:19))/3600.;
+end
+
+% Вначале сохраним MAT-файл для последующей независимой обработки
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+% В процессе корректировки изменяется профиль IRI, но это не отображается
+% на графике!!!
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+itmnu_Save_Real_to_MAT_Callback();
+S = load(last_saved_mat);
+
+% Получим оцифровку
+tmp = flipud(S.trace_F2o);
+f = tmp(:,1)';
+hv = tmp(:,2)';
+
+% Получим подлежащий корректировке IRI профиль
+tmp = S.iri_profile;
+f_ = tmp(:,1);
+for i=1:length(f_)-2 % Поиск локального минимума, соответствующего E-слою
+    if f_(i)<=f_(i+1)&&f_(i+1)>f_(i+2)
+        fmE = f_(i+1);
+        break
+    end
+end
+
+% Определяем частоты fmE построения корректировок
+foE = fmE:0.05:f(1)-0.01;
+foF2 = get(findobj('DisplayName','foF2'),'XData');
+foF2 = foF2(1);
+% Не используются в расчётах.
+hmF2 = NaN;
+foF1 = NaN;
+hmF1 = NaN;
+hmE = NaN;
+for i = 1:length(foE)
+    [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, foE(i), hmE);
+
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+
+    % Вызываем внешнюю процедуру, учитывающую E-слой
+    H = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound);
+    set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(i)), ' MHz']);
+end

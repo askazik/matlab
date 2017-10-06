@@ -76,11 +76,11 @@ jf = [1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,0,0,0,...
      1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
 % Тестируем на наличие данных для корректировки.
 is_foF2 = ~isnan(foF2);
-is_hmF2 = 0; %~isnan(hmF2); 
+is_hmF2 = ~isnan(hmF2); 
 is_foF1 = ~isnan(foF1); 
-is_hmF1 = 0; %~isnan(hmF1); 
+is_hmF1 = ~isnan(hmF1); 
 is_foE = ~isnan(foE);
-is_hmE = 0; %~isnan(hmE);
+is_hmE = ~isnan(hmE);
 % Корректируем вход по наличным данным
 % c =======================================================================
 % c Programs using subroutine IRI_WEB need to include (see IRITEST.FOR):
@@ -304,7 +304,9 @@ ivar = 1; % variable? (1/2/../8 for height/lat/long/year/month/day/day of year/h
 % c-----------------------------------------------------------------------  
 
 h = vbeg:vstp:vend;
-Ne = outf(1,1:length(h));
+Ne = double(outf(1,1:length(h)));
+outf = double(outf);
+oarr = double(oarr);
 % plot(Ne,h);
 %     grid on
 %     title('N_e(h), 1/m^{-3}')

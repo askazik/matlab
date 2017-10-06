@@ -1,19 +1,28 @@
-function fig_h = Denisenko_Nigth_Nh_from_hv_IRI_real(f, hv, f_N, h_N, ks_title)
+function fig_h = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, ks_title)
 
 fH =1.29;
 tetta = 25.19;
 
 % cd('C:\Documents and Settings\1\Мои документы\MATLAB\F_region');
 % 
-% load ('2016-10-09_22-45r.mat');
+% load ('2016-10-0.9_22-45rmat');
 % load ('h Ростов 2016.10.09  22-45-0 5.mat');
 % load ('Fn Ростов 2016.10.09  22-45-0 5.mat');
 % ks_title = 'Ростов 2016.10.09  22-45-0 5';
+%load ('2016-09-30_15-00r.mat');
+% ks_title = timesound;
 % 
 % tmp = flipud(trace_F2o);
 % f = tmp(:,1)';
 % hv = tmp(:,2)';
 % % foF = foF2;
+% 
+% tmp = iri_profile;
+% hu_tab = tmp(:,2)';
+% fu_tab = tmp(:,1)';
+% ind = find(fu_tab == max(fu_tab));
+% hu_tab = hu_tab(1:ind);
+% fu_tab = fu_tab(1:ind);
 % 
 n = length(h_N);
 % h_N = hu_tab; % высоты из IRI
@@ -21,6 +30,15 @@ n = length(h_N);
 foF = f_N(n);
 hmF = h_N(n);
 nf = length(f);
+
+% for i=1:n-2
+%     if f_N(i)<=f_N(i+1)&&f_N(i+1)>f_N(i+2)
+%         foE = f_N(i+1);
+%         hoE = h_N(i+1);
+%         break
+%     end
+% end
+
 
 nE = 3;
 fE = f(1:nE);
@@ -55,7 +73,7 @@ sigmaE = sqrt(S/(length(fE)-1));
 % plot (f_N,h_N,'-b',f_NE,hE_cor,'-r',fE,hv_E,'-*k',fE,hv_E_calc,'-^r','LineWidth',2);
 % ylabel('h & h_v, km')
 % xlabel('f & f_N, MHz')
-% legend('h(IRI)','h_c_o_r(h_v)','h_v(exper)','h_v(calc)','Location','northeast')
+% legend('h(IRI)','h_c_o_r(h_v)','h_v(exper)','h_v(calc)',0)
 % title(ks_title)
 % grid on
 
@@ -86,7 +104,7 @@ fpF = fN_model(hF,p,m,a,hmE,hmF,fpE,foF);
 % plot (f_N,h_N,'-b',fpF,hF,'-r',fF,hv_F,'-*k',fF,hv_F_calc,'-^r','LineWidth',2);
 % ylabel('h & h_v, km')
 % xlabel('f & f_N, MHz')
-% legend('h(IRI)','h_c_o_r(h_v)','h_v(exper)','h_v(calc)','Location','northeast')
+% legend('h(IRI)','h_c_o_r(h_v)','h_v(exper)','h_v(calc)',0)
 % title(ks_title)
 % grid on
 
@@ -142,9 +160,9 @@ h0 = h_tab(1);
 Xpd = 0.99;
 fpd = f*sqrt(Xpd);
 hpd = H_refl_tabl(fpd,h_tab,fN_tab);
-
-qD = quadl(@Mvh_o_tabl,h0,hpd,tol,0,f,fH,tetta,h_tab,fN_tab);
-hvD = h0+qD;
+qD1 = quadl(@Mvh_o_tabl,h0,110,tol,0,f,fH,tetta,h_tab,fN_tab);
+qD2 = quadl(@Mvh_o_tabl,110,hpd,tol,0,f,fH,tetta,h_tab,fN_tab);
+hvD = h0+qD1+qD2;
 
 hr = H_refl_tabl(f,h_tab,fN_tab);
 Hr = (hr - hpd)/(1 - Xpd);
@@ -231,7 +249,7 @@ x = fN_tab;
 y = h_tab;
 n = length(x);
 for j=1:(n-1)
-    if fN>=x(j)&&fN<x(j+1)
+    if fN>=x(j)&&fN<=x(j+1)
         hr=y(j)+(fN-x(j))/(x(j+1)-x(j))*(y(j+1)-y(j));
         break
     end
