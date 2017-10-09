@@ -1,4 +1,4 @@
-function fig_h = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, ks_title)
+function [fig_h, SE, SF] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, ks_title, calc_F)
 
 fH =1.29;
 tetta = 25.19;
@@ -31,16 +31,23 @@ foF = f_N(n);
 hmF = h_N(n);
 nf = length(f);
 
-% for i=1:n-2
-%     if f_N(i)<=f_N(i+1)&&f_N(i+1)>f_N(i+2)
-%         foE = f_N(i+1);
-%         hoE = h_N(i+1);
-%         break
-%     end
-% end
+for i=1:n-2
+    if f_N(i)<=f_N(i+1)&&f_N(i+1)>f_N(i+2)
+        foE = f_N(i+1);
+        hoE = h_N(i+1);
+        break
+    end
+end
 
 
 nE = 3;
+for i = nE:n
+    if  hv(i+1) >= hv(i)
+        nE = i;
+        break;
+    end
+end
+
 fE = f(1:nE);
 fF = f(nE+1:nf);
 fE_max = fE(nE);
@@ -60,12 +67,10 @@ f_NE = f_N(1:nE_max);
 options = optimset('TolX',1e-6);
 
 hm0 = h_NE(nE_max);
-[hmE,S] = fminsearch(@SUM_dhv_tabl,hm0,options,fE,hv_E,fH,tetta,h_NE,f_NE);
+[hmE,SE] = fminsearch(@SUM_dhv_tabl,hm0,options,fE,hv_E,fH,tetta,h_NE,f_NE);
 [hE_cor] = COR(hmE,h_NE);
 
-% plot(h_NE,hE_cor-h_NE);
-
-sigmaE = sqrt(S/(length(fE)-1));
+sigmaE = sqrt(SE/(length(fE)-1));
 [hv_E_calc] = HV_theor_tabl(fE,fH,tetta,hE_cor,f_NE);
 
 % figure('NumberTitle','off','Name',['E-region: ','nE=',num2str(nE),'  sigE=',num2str(sigmaE),...
@@ -77,49 +82,54 @@ sigmaE = sqrt(S/(length(fE)-1));
 % title(ks_title)
 % grid on
 
-h0 = h_NE(1);
-for i=1:length(fF)
-    dhvE(i) = HvE_o_tabl(fF(i),fH,tetta,h0,hmE,hE_cor,f_NE);
-    dhvF(i) = hv_F(i) - dhvE(i);
+fig_h = 0;
+SF = 0;
+if calc_F
+    h0 = h_NE(1);
+    for i=1:length(fF)
+        dhvE(i) = HvE_o_tabl(fF(i),fH,tetta,h0,hoE,hmE,hE_cor,f_NE);
+        dhvF(i) = hv_F(i) - dhvE(i);
+    end
+    
+    m = 2; p = 1;
+    fpE = fN_tabl(hmE-0.5,hE_cor,f_NE);
+    par = [0.6,hmF];
+    
+    [par,SF] = fminsearch(@SUM_dhv_model,par,options,fF,dhvF,hmE,fpE,foF,p,m,fH,tetta);
+    a = par(1);
+    hmF = par(2);
+    
+    sigmaF = sqrt(SF/(length(fF)-2));
+    [dhv_calc] = HV_theor_model(fF,fH,tetta,p,m,a,hmE,hmF,fpE,foF);
+    hv_F_calc = dhv_calc + dhvE;
+    
+    dh = (hmF-hmE)/10;
+    hF = hmE:dh:hmF;
+    fpF = fN_model(hF,p,m,a,hmE,hmF,fpE,foF);
+    
+    % figure('NumberTitle','off','Name',['F-region: ','nE=',num2str(nE),'  sigF=',num2str(sigmaF),...
+    %     '  foF=',num2str(foF),'  hmF=',num2str(hmF),'  a=',num2str(a)]);
+    % plot (f_N,h_N,'-b',fpF,hF,'-r',fF,hv_F,'-*k',fF,hv_F_calc,'-^r','LineWidth',2);
+    % ylabel('h & h_v, km')
+    % xlabel('f & f_N, MHz')
+    % legend('h(IRI)','h_c_o_r(h_v)','h_v(exper)','h_v(calc)',0)
+    % title(ks_title)
+    % grid on
+    
+    % h_F = [hE_cor,hF];
+    % fN_F = [f_NE,fpF];
+    hv_calc = [hv_E_calc,hv_F_calc];
+    
+    fig_h = figure('NumberTitle','off','Name',['F-region: ','nE=',num2str(nE),'  sigE=',num2str(sigmaE),...
+        '  sigF=',num2str(sigmaF),'  foF=',num2str(foF),'  hmF=',num2str(hmF),'  a=',num2str(a)]);
+    plot (f_N,h_N,'-b',f_NE,hE_cor,'.-r',fpF,hF,'-or',f,hv,'-*k',f,hv_calc,'-^r','LineWidth',2);
+    ylabel('h & h_v, km')
+    xlabel('f & f_N, MHz')
+    legend('h(IRI)','h_c_o_r(E)','h_c_o_r(F)','h_v(exper)','h_v(calc)','Location','southeast')
+    title(ks_title)
+    grid on
+    
 end
-
-m = 2; p = 1;
-fpE = fN_tabl(hmE,hE_cor,f_NE);
-par = [0.6,hmF];
-
-[par,S] = fminsearch(@SUM_dhv_model,par,options,fF,dhvF,hmE,fpE,foF,p,m,fH,tetta);
-a = par(1);
-hmF = par(2);
-
-sigmaF = sqrt(S/(length(fF)-2));
-[dhv_calc] = HV_theor_model(fF,fH,tetta,p,m,a,hmE,hmF,fpE,foF);
-hv_F_calc = dhv_calc + dhvE;
-
-dh = (hmF-hmE)/10;
-hF = hmE:dh:hmF;
-fpF = fN_model(hF,p,m,a,hmE,hmF,fpE,foF);
-
-% figure('NumberTitle','off','Name',['F-region: ','nE=',num2str(nE),'  sigF=',num2str(sigmaF),...
-%     '  foF=',num2str(foF),'  hmF=',num2str(hmF),'  a=',num2str(a)]);
-% plot (f_N,h_N,'-b',fpF,hF,'-r',fF,hv_F,'-*k',fF,hv_F_calc,'-^r','LineWidth',2);
-% ylabel('h & h_v, km')
-% xlabel('f & f_N, MHz')
-% legend('h(IRI)','h_c_o_r(h_v)','h_v(exper)','h_v(calc)',0)
-% title(ks_title)
-% grid on
-
-% h_F = [hE_cor,hF];
-% fN_F = [f_NE,fpF];
-hv_calc = [hv_E_calc,hv_F_calc];
-
-fig_h = figure('NumberTitle','off','Name',['F-region: ','nE=',num2str(nE),'  sigE=',num2str(sigmaE),...
-    '  sigF=',num2str(sigmaF),'  foF=',num2str(foF),'  hmF=',num2str(hmF),'  a=',num2str(a)]);
-plot (f_N,h_N,'-b',f_NE,hE_cor,'.-r',fpF,hF,'-or',f,hv,'-*k',f,hv_calc,'-^r','LineWidth',2);
-ylabel('h & h_v, km')
-xlabel('f & f_N, MHz')
-legend('h(IRI)','h_c_o_r(E)','h_c_o_r(F)','h_v(exper)','h_v(calc)','Location','southeast')
-title(ks_title)
-grid on
 
 %====================================================
 function [h_tab] = COR(hm,h_N)
@@ -255,11 +265,13 @@ for j=1:(n-1)
     end
 end
 %============================================================
-function dhvE = HvE_o_tabl(f,fH,tetta,h0,hm,h_NE,f_NE)
+function dhvE = HvE_o_tabl(f,fH,tetta,h0,hmE,hmax,h_NE,f_NE)
 
 tol = 1e-6;
-qE1 = quadl(@Mvh_o_tabl,h0,hm,tol,0,f,fH,tetta,h_NE,f_NE);
-dhvE = h0+qE1; 
+qE1 = quadl(@Mvh_o_tabl,h0,hmE,tol,0,f,fH,tetta,h_NE,f_NE);
+qE2 = quadl(@Mvh_o_tabl,hmE,hmax,tol,0,f,fH,tetta,h_NE,f_NE);
+
+dhvE = h0+qE1+qE2; 
 %===========================================================
 function [hv_calc] = HV_theor_model(f,fH,tetta,p,m,a,h0,hm,fp0,fc)
 

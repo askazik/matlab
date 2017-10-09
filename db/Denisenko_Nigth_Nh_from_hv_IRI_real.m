@@ -22,6 +22,7 @@ foF = f_N(n);
 hmF = h_N(n);
 nf = length(f);
 
+% Выбор nE.
 nE = 3;
 fE = f(1:nE);
 fF = f(nE+1:nf);

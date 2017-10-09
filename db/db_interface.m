@@ -2072,6 +2072,9 @@ hmF2 = NaN;
 foF1 = NaN;
 hmF1 = NaN;
 hmE = NaN;
+
+SE = zeros(length(foE),1);
+calc_F = 0;
 for i = 1:length(foE)
     [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
                     foF2, hmF2, foF1, hmF1, foE(i), hmE);
@@ -2086,6 +2089,34 @@ for i = 1:length(foE)
     h_N = [h(ind), hoF2];
 
     % Вызываем внешнюю процедуру, учитывающую E-слой
-    H = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound);
-    set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(i)), ' MHz']);
+    [H, SE(i), SF] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound, calc_F);
 end
+
+% Выбираем минимальное SE.
+ind_E = find(SE == min(SE));
+
+    [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, foE(ind_E), hmE);
+
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+    
+calc_F = 1;
+[H, SE, SF] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound, calc_F);
+set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(ind_E)), ' MHz']);
+
+% Перезапись измененных параметров в файл.
+foE_ = foE; % копируем т.к. затирается из МАТ файла
+load(last_saved_mat);
+foE = foE_(ind_E);
+% Получение профиля по IRI
+iri_profile = [f_N',h_N'];
+save(last_saved_mat, 'timesound', 'index_selected', 'alati', 'along', ...
+    'trace_Eo', 'trace_F1o', 'trace_F2o', 'trace_Ex', 'trace_F1x', 'trace_F2x', 'profile', 'iri_profile', ...
+    'foF2', 'fxF2', 'hmF2', 'foF1', 'hmF1', 'foE', 'hmE', 'foEs');
