@@ -1,4 +1,5 @@
 function [fig_h, SE, SF] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, ks_title, calc_F)
+
 fH =1.29;
 tetta = 25.19;
 
@@ -38,6 +39,7 @@ for i=1:n-2
     end
 end
 
+
 nE = 3;
 for i = nE:n
     if  hv(i+1) >= hv(i)
@@ -46,34 +48,6 @@ for i = nE:n
     end
 end
 
-fE = f(1:nE);
-fF = f(nE+1:nf);
-fE_max = fE(nE);
-hv_E = hv(1:nE);
-hv_F = hv(nE+1:nf);
-
-for i=1:n-2
-    if f_N(i)<=f_N(i+1)&&f_N(i+1)>=f_N(i+2)
-        foE = f_N(i+1);
-        hoE = h_N(i+1);
-        break
-    end
-end
-
-% for i=1:nf
-%     [hv_IRI] = HV_theor_tabl(f,fH,tetta,hoE,h_N,f_N);
-% end
-% 
-% figure('NumberTitle','off','Name',['Hv-IRI','  foE=',num2str(foE),'  foF=',num2str(foF),...
-%     '  hoE=',num2str(hoE),'  hoF=',num2str(hmF)]);
-% plot (f_N,h_N,'-b',f,hv,'-k',f,hv_IRI,'-r','LineWidth',2);
-% ylabel('h & h_v, km')
-% xlabel('f & f_N, MHz')
-% legend('h(IRI)','h_v(exper)','h_v(IRI)',0)
-% title(ks_title)
-% grid on
-
-nE = 3;
 fE = f(1:nE);
 fF = f(nE+1:nf);
 fE_max = fE(nE);
@@ -90,26 +64,17 @@ h_NE = h_N(1:nE_max);
 f_NE = f_N(1:nE_max);
 
 %===============================================
-options = optimset('TolX',1e-4);
+options = optimset('TolX',1e-6);
 
 hm0 = h_NE(nE_max);
-[hmE,SE] = fminsearch(@SUM_dhv_tabl,hm0,options,fE,hv_E,fH,tetta,hoE,h_NE,f_NE);
+[hmE,SE] = fminsearch(@SUM_dhv_tabl,hm0,options,fE,hv_E,fH,tetta,h_NE,f_NE);
 [hE_cor] = COR(hmE,h_NE);
 
-% plot(h_NE,hE_cor-h_NE);
-
-for i=1:n-2
-    if f_N(i)<=f_N(i+1)&&f_N(i+1)>=f_N(i+2)
-        hoE = hE_cor(i+1);
-        break
-    end
-end
-
 sigmaE = sqrt(SE/(length(fE)-1));
-[hv_E_calc] = HV_theor_tabl(fE,fH,tetta,hoE,hE_cor,f_NE);
+[hv_E_calc] = HV_theor_tabl(fE,fH,tetta,hE_cor,f_NE);
 
 % figure('NumberTitle','off','Name',['E-region: ','nE=',num2str(nE),'  sigE=',num2str(sigmaE),...
-%     '  foE=',num2str(foE),'  foF=',num2str(foF),'  hmE=',num2str(hoE)]);
+%     '  foF=',num2str(foF),'  hmE=',num2str(hmE)]);
 % plot (f_N,h_N,'-b',f_NE,hE_cor,'-r',fE,hv_E,'-*k',fE,hv_E_calc,'-^r','LineWidth',2);
 % ylabel('h & h_v, km')
 % xlabel('f & f_N, MHz')
@@ -121,42 +86,28 @@ fig_h = 0;
 SF = 0;
 if calc_F
     h0 = h_NE(1);
-    Xp = 0.985;
-    fp = fF(1)*sqrt(Xp);
-    if fp<fE_max
-        hpE = H_refl_tabl(fp,hE_cor,f_NE);
-        fpE = fp;
-    else
-        hpE = H_refl_tabl(fE_max,hE_cor,f_NE);
-        fpE = fE_max;
-    end
-    hE_cor(nE_max) = hpE;
-    f_NE(nE_max) = fpE;
-    
     for i=1:length(fF)
-        dhvE(i) = HvE_o_tabl(fF(i),fH,tetta,h0,hoE,hpE,hE_cor,f_NE);
+        dhvE(i) = HvE_o_tabl(fF(i),fH,tetta,h0,hoE,hmE,hE_cor,f_NE);
         dhvF(i) = hv_F(i) - dhvE(i);
     end
     
-    % plot(fF,dhvE,'-b',fF,dhvF,'-r');
-    
     m = 2; p = 1;
-    par = [1,hmF];
+    fpE = fN_tabl(hmE-0.5,hE_cor,f_NE);
+    par = [0.6,hmF];
     
-    [par,SF] = fminsearch(@SUM_dhv_model,par,options,fF,dhvF,hpE,fpE,foF,p,m,fH,tetta);
+    [par,SF] = fminsearch(@SUM_dhv_model,par,options,fF,dhvF,hmE,fpE,foF,p,m,fH,tetta);
     a = par(1);
     hmF = par(2);
     
     sigmaF = sqrt(SF/(length(fF)-2));
-    [dhv_calc] = HV_theor_model(fF,fH,tetta,p,m,a,hpE,hmF,fpE,foF);
+    [dhv_calc] = HV_theor_model(fF,fH,tetta,p,m,a,hmE,hmF,fpE,foF);
     hv_F_calc = dhv_calc + dhvE;
     
-    dh = (hmF-hpE)/25;
-    hF = hpE:dh:hmF+2*dh;
-    fpF = fN_model(hF,p,m,a,hpE,hmF,fpE,foF);
+    dh = (hmF-hmE)/10;
+    hF = hmE:dh:hmF;
+    fpF = fN_model(hF,p,m,a,hmE,hmF,fpE,foF);
     
-    % figure('NumberTitle','off','Name',['F-region: ','m=',num2str(m),'  p=',num2str(p),...
-    %     '  nE=',num2str(nE),'  sigF=',num2str(sigmaF),...
+    % figure('NumberTitle','off','Name',['F-region: ','nE=',num2str(nE),'  sigF=',num2str(sigmaF),...
     %     '  foF=',num2str(foF),'  hmF=',num2str(hmF),'  a=',num2str(a)]);
     % plot (f_N,h_N,'-b',fpF,hF,'-r',fF,hv_F,'-*k',fF,hv_F_calc,'-^r','LineWidth',2);
     % ylabel('h & h_v, km')
@@ -169,10 +120,9 @@ if calc_F
     % fN_F = [f_NE,fpF];
     hv_calc = [hv_E_calc,hv_F_calc];
     
-    fig_h = figure('NumberTitle','off','Name',['F-region: ','nE=',num2str(nE),'  m=',num2str(m),'  p=',num2str(p),...
-        '  sigE=',num2str(sigmaE),'  sigF=',num2str(sigmaF),'  foF=',num2str(foF),'  hmF=',num2str(hmF),...
-        '  foE=',num2str(foE),'  hmE=',num2str(hoE),'  a=',num2str(a)]);
-    plot (f_N,h_N,'-b',f_NE,hE_cor,'.-r',fpF,hF,'-r',f,hv,'-*k',f,hv_calc,'-^r','LineWidth',2);
+    fig_h = figure('NumberTitle','off','Name',['F-region: ','nE=',num2str(nE),'  sigE=',num2str(sigmaE),...
+        '  sigF=',num2str(sigmaF),'  foF=',num2str(foF),'  hmF=',num2str(hmF),'  a=',num2str(a)]);
+    plot (f_N,h_N,'-b',f_NE,hE_cor,'.-r',fpF,hF,'-or',f,hv,'-*k',f,hv_calc,'-^r','LineWidth',2);
     ylabel('h & h_v, km')
     xlabel('f & f_N, MHz')
     legend('h(IRI)','h_c_o_r(E)','h_c_o_r(F)','h_v(exper)','h_v(calc)','Location','southeast')
@@ -196,32 +146,32 @@ h_tab = h_N(1):dh:hm;
 % dh = dhm*((h_N - h0)./(hm0 - h0));
 % h_tab = h_N + dh ;
 %====================================================
-function [hv_calc] = HV_theor_tabl(f,fH,tetta,hoE,h_N,fN_tab)
+function [hv_calc] = HV_theor_tabl(f,fH,tetta,h_N,fN_tab)
 
 for i=1:length(f)
-    hv_calc(i) = Hv_o_tabl(f(i),fH,tetta,hoE,h_N,fN_tab);
+    hv_calc(i) = Hv_o_tabl(f(i),fH,tetta,h_N,fN_tab);
 end
 %====================================================
-function dhv2 = SUM_dhv_tabl(hm,f,hv,fH,tetta,hoE,h_N,fN_tab)
+function dhv2 = SUM_dhv_tabl(hm,f,hv,fH,tetta,h_N,fN_tab)
 
 [h_tab] = COR(hm,h_N);
 n = length(f);
 s = 0;
 for i=1:n
-    hvt(i) = Hv_o_tabl(f(i),fH,tetta,hoE,h_tab,fN_tab);
+    hvt(i) = Hv_o_tabl(f(i),fH,tetta,h_tab,fN_tab);
     s = s + ((hv(i)-hvt(i)))^2;
 end
 dhv2 = s;
 %====================================================
-function hv = Hv_o_tabl(f,fH,tetta,hoE,h_tab,fN_tab)
+function hv = Hv_o_tabl(f,fH,tetta,h_tab,fN_tab)
 
-tol = 1e-4;
+tol = 1e-6;
 h0 = h_tab(1);
 Xpd = 0.99;
 fpd = f*sqrt(Xpd);
 hpd = H_refl_tabl(fpd,h_tab,fN_tab);
-qD1 = quadl(@Mvh_o_tabl,h0,hoE,tol,0,f,fH,tetta,h_tab,fN_tab);
-qD2 = quadl(@Mvh_o_tabl,hoE,hpd,tol,0,f,fH,tetta,h_tab,fN_tab);
+qD1 = quadl(@Mvh_o_tabl,h0,110,tol,0,f,fH,tetta,h_tab,fN_tab);
+qD2 = quadl(@Mvh_o_tabl,110,hpd,tol,0,f,fH,tetta,h_tab,fN_tab);
 hvD = h0+qD1+qD2;
 
 hr = H_refl_tabl(f,h_tab,fN_tab);
@@ -315,11 +265,12 @@ for j=1:(n-1)
     end
 end
 %============================================================
-function dhvE = HvE_o_tabl(f,fH,tetta,h0,hoE,hmax,h_NE,f_NE)
+function dhvE = HvE_o_tabl(f,fH,tetta,h0,hmE,hmax,h_NE,f_NE)
 
-tol = 1e-4;
-qE1 = quadl(@Mvh_o_tabl,h0,hoE,tol,0,f,fH,tetta,h_NE,f_NE);
-qE2 = quadl(@Mvh_o_tabl,hoE,hmax,tol,0,f,fH,tetta,h_NE,f_NE);
+tol = 1e-6;
+qE1 = quadl(@Mvh_o_tabl,h0,hmE,tol,0,f,fH,tetta,h_NE,f_NE);
+qE2 = quadl(@Mvh_o_tabl,hmE,hmax,tol,0,f,fH,tetta,h_NE,f_NE);
+
 dhvE = h0+qE1+qE2; 
 %===========================================================
 function [hv_calc] = HV_theor_model(f,fH,tetta,p,m,a,h0,hm,fp0,fc)
@@ -342,7 +293,7 @@ dhv2 = s;
 %====================================================
 function hv = Hv_o_model(f,fH,tetta,p,m,a,h0,hm,fp0,fc)
 
-tol = 1e-4;
+tol = 1e-6;
 Xpd = 0.99;
 fpd = f*sqrt(Xpd);
 hpd = H_refl_model(fpd,p,m,a,h0,hm,fp0,fc);

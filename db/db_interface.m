@@ -28,7 +28,7 @@ function varargout = db_interface(varargin)
 
 % Edit the above text to modify the response to help db_interface
 
-% Last Modified by GUIDE v2.5 06-Oct-2017 13:12:29
+% Last Modified by GUIDE v2.5 11-Oct-2017 13:21:57
 
 %% Инициализации интерфейса
 
@@ -1386,7 +1386,8 @@ if strcmp(get(handles.toggle_pt,'State'),'on')
       				'MarkerEdgeColor','k',...
                     'MarkerFaceColor',handles.faceColor,...
                     'MarkerSize',7,...
-                    'Tag',strcat('trace_',type,'o'));
+                    'Tag',strcat('trace_',type,'o'),...
+                    'DisplayName',strcat(type,'o',' вручную'));
         end
         if strcmp(get(handles.toggle_x,'State'),'on')
             % 'trace_Ex', 'trace_F1x', 'trace_F2x'
@@ -1394,7 +1395,8 @@ if strcmp(get(handles.toggle_pt,'State'),'on')
                     'LineWidth',2,...
       				'MarkerEdgeColor',handles.faceColor,...
                     'MarkerSize',10,...
-                    'Tag',strcat('trace_',type,'x'));
+                    'Tag',strcat('trace_',type,'x'),...
+                    'DisplayName',strcat(type,'x',' вручную'));
         end        
     end
 end   
@@ -2074,7 +2076,8 @@ hmF1 = NaN;
 hmE = NaN;
 
 SE = zeros(length(foE),1);
-calc_F = 0;
+SF = zeros(length(foE),1);
+calc_F = 1;
 for i = 1:length(foE)
     [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
                     foF2, hmF2, foF1, hmF1, foE(i), hmE);
@@ -2089,7 +2092,10 @@ for i = 1:length(foE)
     h_N = [h(ind), hoF2];
 
     % Вызываем внешнюю процедуру, учитывающую E-слой
-    [H, SE(i), SF] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound, calc_F);
+    [H, SE(i), SF(i)] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound, calc_F);
+    if calc_F
+        set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(i)), ' MHz']);
+    end
 end
 
 % Выбираем минимальное SE.
@@ -2108,8 +2114,28 @@ ind_E = find(SE == min(SE));
     h_N = [h(ind), hoF2];
     
 calc_F = 1;
-[H, SE, SF] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound, calc_F);
+[H, SEx, SFx] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound, calc_F);
 set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(ind_E)), ' MHz']);
+
+% Выбираем минимальное SE+SF.
+SESF = SE + SF;
+ind_E = find(SESF == min(SESF));
+
+    [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, foE(ind_E), hmE);
+
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+    
+calc_F = 1;
+[H, SEx, SFx] = Denisenko_Nigth_Nh_from_hv_IRI_real_fmE(f, hv, f_N, h_N, S.timesound, calc_F);
+set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(ind_E)), ' MHz. Минимум SE + SF.']);
 
 % Перезапись измененных параметров в файл.
 foE_ = foE; % копируем т.к. затирается из МАТ файла
@@ -2120,3 +2146,135 @@ iri_profile = [f_N',h_N'];
 save(last_saved_mat, 'timesound', 'index_selected', 'alati', 'along', ...
     'trace_Eo', 'trace_F1o', 'trace_F2o', 'trace_Ex', 'trace_F1x', 'trace_F2x', 'profile', 'iri_profile', ...
     'foF2', 'fxF2', 'hmF2', 'foF1', 'hmF1', 'foE', 'hmE', 'foEs');
+
+
+% --------------------------------------------------------------------
+function itmnu_Save_MAT_and_Work_Cor_fmE_fval_Callback(hObject, eventdata, handles)
+% hObject    handle to itmnu_Save_MAT_and_Work_Cor_fmE_fval (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global last_saved_mat
+global data data_proc 
+
+index_selected = int32(get(findobj('Tag','listboxDate'),'Value'));
+dat = data.Data(index_selected,:);
+
+alati = dat{3};
+along = dat{4};
+vbeg = 80; % double(dat{5})/1000.;
+vend = double(dat{6})/1000.;
+vstp = 5; % double(dat{7})/1000.;
+timesound = dat{2};
+iyyyy = str2num(timesound(1:4));
+mmdd = str2num([timesound(6:7),timesound(9:10)]);
+
+k = strfind(timesound, ':');
+if k(1) == 13
+    dhour = str2num(timesound(12)) + str2num(timesound(14:15))/60. + str2num(timesound(17:18))/3600.;
+else
+    dhour = str2num(timesound(12:13)) + str2num(timesound(15:16))/60. + str2num(timesound(18:19))/3600.;
+end
+
+% Вначале сохраним MAT-файл для последующей независимой обработки
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+% В процессе корректировки изменяется профиль IRI, но это не отображается
+% на графике!!!
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+itmnu_Save_Real_to_MAT_Callback();
+S = load(last_saved_mat);
+
+% Получим оцифровку
+tmp = flipud(S.trace_F2o);
+f = tmp(:,1)';
+hv = tmp(:,2)';
+
+% Получим подлежащий корректировке IRI профиль
+tmp = S.iri_profile;
+f_ = tmp(:,1);
+for i=1:length(f_)-2 % Поиск локального минимума, соответствующего E-слою
+    if f_(i)<=f_(i+1)&&f_(i+1)>f_(i+2)
+        fmE = f_(i+1);
+        break
+    end
+end
+
+% Определяем частоты fmE построения корректировок
+foE = fmE:0.05:min(f)-0.01;
+foF2 = get(findobj('DisplayName','foF2'),'XData');
+foF2 = foF2(1);
+% Не используются в расчётах.
+hmF2 = NaN;
+foF1 = NaN;
+hmF1 = NaN;
+hmE = NaN;
+
+SF1 = zeros(length(foE),1);
+SF2 = zeros(length(foE),1);
+for i = 1:length(foE)
+    [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, foE(i), hmE);
+
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+
+    % Вызываем внешнюю процедуру, учитывающую E-слой
+    [H, SF1(i)] = Denisenko_Nigth_Nh_from_hv_IRI_fval(f, hv, f_N, h_N, S.timesound, 2, 1);
+    close(H);
+    [H, SF2(i)] = Denisenko_Nigth_Nh_from_hv_IRI_fval(f, hv, f_N, h_N, S.timesound, 3, 2);
+    %set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(i)), ' MHz']);
+    close(H);
+end
+
+% Выбираем минимальное SF1.
+ind_E = find(SF1 == min(SF1));
+
+    [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, foE(ind_E), hmE);
+
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+    
+[H, SFx] = Denisenko_Nigth_Nh_from_hv_IRI_fval(f, hv, f_N, h_N, S.timesound, 2, 1);
+set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(ind_E)), ' MHz']);
+savefig(H,strcat(last_saved_mat,'m2p1'));
+
+% Выбираем минимальное SF2.
+ind_E = find(SF2 == min(SF2));
+
+    [Ne,h,outf,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, foE(ind_E), hmE);
+
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+    
+[H, SFx] = Denisenko_Nigth_Nh_from_hv_IRI_fval(f, hv, f_N, h_N, S.timesound, 3, 2);
+set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(ind_E)), ' MHz']);
+savefig(H,strcat(last_saved_mat,'m3p2'));
+
+% % Перезапись измененных параметров в файл.
+% foE_ = foE; % копируем т.к. затирается из МАТ файла
+% load(last_saved_mat);
+% foE = foE_(ind_E);
+% % Получение профиля по IRI
+% iri_profile = [f_N',h_N'];
+% save(last_saved_mat, 'timesound', 'index_selected', 'alati', 'along', ...
+%     'trace_Eo', 'trace_F1o', 'trace_F2o', 'trace_Ex', 'trace_F1x', 'trace_F2x', 'profile', 'iri_profile', ...
+%     'foF2', 'fxF2', 'hmF2', 'foF1', 'hmF1', 'foE', 'hmE', 'foEs');
