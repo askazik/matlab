@@ -197,20 +197,9 @@ end
 %============================================================
 function dhvE = HvE_o_tabl(f,fH,cost,cos2,sin2,h0,hoE,hmax,h_NE,f_NE)
 
-dhE = hoE-h0;
-hp = h0+dhE/2;
-y1 = Mvh_o_tabl(h0,f,fH,cost,cos2,sin2,h_NE,f_NE);
-y2 = Mvh_o_tabl(hp,f,fH,cost,cos2,sin2,h_NE,f_NE);
-y3 = Mvh_o_tabl(hoE,f,fH,cost,cos2,sin2,h_NE,f_NE);
-qE1 = dhE/6*(y1+4*y2+y3);
-
-dhV = hmax-hoE;
-hp = hoE+dhE/2;
-y1 = y3;
-y2 = Mvh_o_tabl(hp,f,fH,cost,cos2,sin2,h_NE,f_NE);
-y3 = Mvh_o_tabl(hmax,f,fH,cost,cos2,sin2,h_NE,f_NE);
-qE2 = dhV/6*(y1+4*y2+y3);
-
+tol = 1e-4;
+qE1 = quadl(@Mvh_o_tabl,h0,hoE,tol,0,f,fH,cost,cos2,sin2,h_NE,f_NE);
+qE2 = quadl(@Mvh_o_tabl,hoE,hmax,tol,0,f,fH,cost,cos2,sin2,h_NE,f_NE);
 dhvE = h0+qE1+qE2; 
 %===========================================================
 function [hv_calc] = HV_theor_model(f,fH,cost,cos2,sin2,c,m,h0,hm,fp0,fc,dif)
