@@ -709,9 +709,9 @@ set(handles.popupmenuYear, 'Value', n_lst_years);
 close(curs);
 
 % Найдём все месяцы в последнем годе
-query = join(string({'select distinct MONTHNAME(time_sound), month(time_sound) from ionosphere.parus where year(time_sound) = ',...
+query = ['select distinct MONTHNAME(time_sound), month(time_sound) from ionosphere.parus where year(time_sound) = ',...
     num2str(lst_years{n_lst_years}),...
-    ' ORDER BY 2'}));
+    ' ORDER BY 2'];
 curs = exec(connection, char(query));
 data = get(fetch(curs));
 lst_months = data.Data(:,1);
@@ -721,10 +721,10 @@ set(handles.popupmenuMonth, 'String', lst_months);
 set(handles.popupmenuMonth, 'Value', n_lst_months);
 close(curs);
 
-query = join(string({...
+query = [...
     'SELECT iono_key, time_sound, latitude, longitude, height_min, height_max, height_step, station_id FROM parus ',...
     'WHERE YEAR(time_sound) = ', num2str(lst_years{n_lst_years}), ' AND ',...
-    'MONTH(time_sound) = ', num2str(numbers_months{n_lst_months}), ' ORDER BY time_sound'}));
+    'MONTH(time_sound) = ', num2str(numbers_months{n_lst_months}), ' ORDER BY time_sound'];
 curs = exec(connection, char(query));
 data = get(fetch(curs));
 close(curs);
