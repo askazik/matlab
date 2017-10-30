@@ -1676,10 +1676,10 @@ cur_year = years{get(findobj('Tag','popupmenuYear'),'Value')};
 months = get(findobj('Tag','popupmenuMonth'), 'String');
 cur_month = months{get(findobj('Tag','popupmenuMonth'),'Value')};
 
-query = join(string({...
+query = [...
     'SELECT iono_key, time_sound, latitude, longitude, height_min, height_max, height_step, station_id FROM parus ',...
     'WHERE YEAR(time_sound) = ', cur_year, ' AND ',...
-    'MONTHNAME(time_sound) = ', strcat('''',cur_month,''''), ' ORDER BY time_sound'}));
+    'MONTHNAME(time_sound) = ', strcat('''',cur_month,''''), ' ORDER BY time_sound'];
 
 curs = exec(connection, char(query));
 data = get(fetch(curs));
@@ -2367,7 +2367,7 @@ if hv(3)<hv(1)
     
     % Выбираем минимальное SF.
     ind_E = find(SE == min(SE));
-    new_foEm = foE(ind_E);
+    new_foEm = foE(ind_E(1));
 else
     % nE = 1;
     new_foEm = fmE;
@@ -2385,6 +2385,25 @@ end
     f_N = [fN(ind), foF2];
     h_N = [h(ind), hoF2];
     
-[H, ~] = Denisenko_Nigth_Nh_hv_IRI_parab_a_b_c_end(f, hv, f_N, h_N, S.timesound, 1);
+[H, ~, hmF2] = Denisenko_Nigth_Nh_hv_IRI_parab_a_b_c_end(f, hv, f_N, h_N, S.timesound, 1);
 % set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(new_foEm), ' MHz']);
 savefig(H,strcat(last_saved_mat,'_a_b_c'));
+
+% Добавление ещё одного скоректированного профиля..
+% Корректируем IRI еще и на hmF2
+[Ne,h,~,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, new_foEm, hmE);
+                
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+% Получение профиля по IRI
+% iri_profile_new = [f_N',h_N'];
+plot(f_N',h_N','-g','LineWidth',2,'DisplayName','IRI with hmF2');
+legend('Location','southeast')
+

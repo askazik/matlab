@@ -1,4 +1,4 @@
-function [fig_h, sig_E] = Denisenko_Nigth_Nh_hv_IRI_parab_a_b_c_end(f, hv, f_N, h_N, ks_title, key_sig_E)
+function [fig_h, sig_E, hmF] = Denisenko_Nigth_Nh_hv_IRI_parab_a_b_c_end(f, hv, f_N, h_N, ks_title, key_sig_E)
 % key_sig_E = 0 - F область не считается
 
 fig_h = 0;
@@ -143,10 +143,16 @@ if(key_sig_E==1)
         '  sF=',num2str(sig_F),'  foE=',num2str(foE),'  fv=',num2str(fval),'  fpF=',num2str(fpF),...
         '  foF=',num2str(foF),'  hmE=',num2str(hoE),'  hv=',num2str(hval),'  hpF=',num2str(hpF),...
         '  hmF=',num2str(hmF),'  a=',num2str(a),'  b=',num2str(b),'  c=',num2str(c)]);
-    plot (f_N,h_N,'-b',fp,hp,'-r',f,hv,'-*k',fd,hv_calc,'-^r','LineWidth',2);
+    
+    plot (f_N,h_N,'-b','LineWidth',2,'DisplayName','h(IRI)');
+    hold on
+    plot (fp,hp,'-r','LineWidth',2,'DisplayName','h_c_o_r(h_v)');
+    plot (f,hv,'-*k','LineWidth',2,'DisplayName','h_v(exper)');
+    plot (fd,hv_calc,'-^r','LineWidth',2,'DisplayName','h_v(calc)');
+
     ylabel('h & h_v, km')
     xlabel('f & f_N, MHz')
-    legend('h(IRI)','h_c_o_r(h_v)','h_v(exper)','h_v(calc)','Location','southeast')
+    
     title(ks_title)
     grid on
     
