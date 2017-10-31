@@ -28,7 +28,7 @@ function varargout = db_interface(varargin)
 
 % Edit the above text to modify the response to help db_interface
 
-% Last Modified by GUIDE v2.5 23-Oct-2017 13:26:18
+% Last Modified by GUIDE v2.5 31-Oct-2017 13:38:48
 
 %% Инициализации интерфейса
 
@@ -2407,3 +2407,136 @@ savefig(H,strcat(last_saved_mat,'_a_b_c'));
 plot(f_N',h_N','-g','LineWidth',2,'DisplayName','IRI with hmF2');
 legend('Location','southeast')
 
+
+% --------------------------------------------------------------------
+function Denisenko_Nigth_Nh_hv_IRI_tabl_a_b_c_2_Callback(hObject, eventdata, handles)
+% hObject    handle to Denisenko_Nigth_Nh_hv_IRI_tabl_a_b_c_2 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+global last_saved_mat
+global data data_proc 
+
+index_selected = int32(get(findobj('Tag','listboxDate'),'Value'));
+dat = data.Data(index_selected,:);
+
+alati = dat{3};
+along = dat{4};
+vbeg = 80; % double(dat{5})/1000.;
+vend = double(dat{6})/1000.;
+vstp = 5; % double(dat{7})/1000.;
+timesound = dat{2};
+iyyyy = str2num(timesound(1:4));
+mmdd = str2num([timesound(6:7),timesound(9:10)]);
+
+k = strfind(timesound, ':');
+if k(1) == 13
+    dhour = str2num(timesound(12)) + str2num(timesound(14:15))/60. + str2num(timesound(17:18))/3600.;
+else
+    dhour = str2num(timesound(12:13)) + str2num(timesound(15:16))/60. + str2num(timesound(18:19))/3600.;
+end
+
+% Вначале сохраним MAT-файл для последующей независимой обработки
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+% В процессе корректировки изменяется профиль IRI, но это не отображается
+% на графике!!!
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+itmnu_Save_Real_to_MAT_Callback();
+S = load(last_saved_mat);
+
+% Получим оцифровку
+tmp = flipud(S.trace_F2o);
+f = tmp(:,1)';
+hv = tmp(:,2)';
+
+% Получим подлежащий корректировке IRI профиль
+tmp = S.iri_profile;
+f_ = tmp(:,1);
+for i=1:length(f_)-2 % Поиск локального минимума, соответствующего E-слою
+    if f_(i)<=f_(i+1)&&f_(i+1)>f_(i+2)
+        fmE = f_(i+1);
+        break
+    end
+end
+
+% Определяем частоты fmE построения корректировок
+df = (min(f)-0.01 - fmE)/10;
+foE = fmE:df:(min(f)-0.01);
+foF2 = get(findobj('DisplayName','foF2'),'XData');
+foF2 = foF2(1);
+% Не используются в расчётах.
+hmF2 = NaN;
+foF1 = NaN;
+hmF1 = NaN;
+hmE = NaN;
+
+if hv(3)<hv(1)
+   % nE = 3;
+    
+    SE = zeros(length(foE),1);
+    for i = 1:length(foE)
+        [Ne,h,~,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+            foF2, hmF2, foF1, hmF1, foE(i), hmE);
+        
+        % Подготавливаем скорректированный профиль
+        Ne(find(Ne<0)) = 0;
+        fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;
+        % Обрезание по точке максимума, Дополним точкой максимума
+        hoF2 = oarr(2);
+        ind = find( h < hoF2);
+        f_N = [fN(ind), foF2];
+        h_N = [h(ind), hoF2];
+        
+        % Вызываем внешнюю процедуру, учитывающую E-слой
+        [~, SE(i)] = Denisenko_Nigth_Nh_hv_IRI_tabl_a_b_c_2(f, hv, f_N, h_N, S.timesound, 0);
+        %set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(i)), ' MHz']);
+        %close(H);
+    end
+    
+    % Выбираем минимальное SF.
+    ind_E = find(SE == min(SE));
+    new_foEm = foE(ind_E(1));
+else
+    % nE = 1;
+    new_foEm = fmE;
+end
+
+    [Ne,h,~,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, new_foEm, hmE);
+
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+    
+[H, ~, hmF2] = Denisenko_Nigth_Nh_hv_IRI_tabl_a_b_c_2(f, hv, f_N, h_N, S.timesound, 1);
+% set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(new_foEm), ' MHz']);
+
+% Добавление ещё одного скоректированного профиля..
+% Корректируем IRI еще и на hmF2
+[Ne,h,~,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, new_foEm, hmE);
+                
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+% Получение профиля по IRI
+% iri_profile_new = [f_N',h_N'];
+plot(f_N',h_N','-g','LineWidth',2,'DisplayName','IRI with hmF2');
+
+% Обратный расчёт ионограммы
+[hv_IRI] = Denisenko_Nigth_hv_IRI_tabl(f,h_N,f_N);
+plot(f,hv_IRI,'-og','LineWidth',2,'DisplayName','Ionogram with hmF2');
+
+legend('Location','southeast')
+
+savefig(H,strcat(last_saved_mat,'_a_b_c'));
