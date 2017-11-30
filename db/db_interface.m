@@ -28,7 +28,7 @@ function varargout = db_interface(varargin)
 
 % Edit the above text to modify the response to help db_interface
 
-% Last Modified by GUIDE v2.5 31-Oct-2017 13:38:48
+% Last Modified by GUIDE v2.5 30-Nov-2017 11:08:27
 
 %% Инициализации интерфейса
 
@@ -218,7 +218,7 @@ switch mnu_key
 end
 
     iptsetpref('ImshowAxesVisible','off')
-    h = imshow(img,'Colormap',clm,'XData',[cur.freq_min cur.freq_max]/1000,'YData',[cur.height_min, cur.height_max]/1000);    
+    h = imshow(img,'Colormap',clm,'XData',[cur.freq_min cur.freq_max]/1000,'YData',[cur.height_min, cur.height_max]/1000); 
     
     set(h,'Tag','imgMain');
     axis normal
@@ -227,6 +227,9 @@ end
     ax = axes('XLim',[cur.freq_min cur.freq_max]/1000,'YLim',[cur.height_min, cur.height_max]/1000,...
                 'Tag','axMain','Position',pos,'Color','none','Box','on',...
                 'FontSize',16,'FontWeight','bold');
+%     ax = axes('XLim',[0 cur.freq_max]/1000,'YLim',[0, cur.height_max]/1000,...
+%                 'Tag','axMain','Position',pos,'Color','none','Box','on',...
+%                 'FontSize',16,'FontWeight','bold');
     set(gca,'FontName','FixedWidth','FontSize',12);
     grid on
       
@@ -439,9 +442,9 @@ dat = data.Data(index_selected,:);
 
 alati = dat{3};
 along = dat{4};
-vbeg = 80; % double(dat{5})/1000.;
+vbeg = 65; % double(dat{5})/1000.;
 vend = double(dat{6})/1000.;
-vstp = 5; % double(dat{7})/1000.;
+vstp = 2; % double(dat{7})/1000.;
 timesound = dat{2};
 iyyyy = str2num(timesound(1:4));
 mmdd = str2num([timesound(6:7),timesound(9:10)]);
@@ -514,6 +517,9 @@ hmE = NaN;
 fmF2 = sqrt(oarr(1)/(1.24*10^10));
 hmF2 = oarr(2);
 
+fmE = sqrt(oarr(5)/(1.24*10^10));
+hmE = oarr(6);
+
 Ne(find(Ne<0)) = 0;
 
 fN = round(sqrt(Ne/(1.24*10^10))' * 100)/100;
@@ -532,6 +538,8 @@ end
 line(double(fN),double(h),'Tag','IRI2016','Color','k','LineWidth',2,'DisplayName','IRI-2016');
 % Отрисовка точки максимума
 line(double(fmF2),double(hmF2),'Tag','IRI2016-F2max','Color','k','LineWidth',2,'Marker','o','DisplayName','IRI-2016 F2m');
+% Отрисовка точки максимума
+line(double(fmE),double(hmE),'Tag','IRI2016-F2max','Color','g','LineWidth',2,'Marker','o','DisplayName','IRI-2016 Em');
 
 
 function plotEDP()
@@ -867,13 +875,33 @@ function itmnu_ox_Callback(hObject, eventdata, handles)
 % hObject    handle to itmnu_o (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+global connection
+
 isChecked = get(hObject,'Checked');
 if strcmp(isChecked,'on')
     set(hObject,'Checked','off');
 else
     set(hObject,'Checked','on');
 end
-OpenMenuItem_Callback(hObject, eventdata, handles)
+
+i_year = get(handles.popupmenuYear, 'Value');
+i_month = get(handles.popupmenuMonth, 'Value');
+lst_years = get(handles.popupmenuYear, 'String');
+
+query = [...
+    'SELECT iono_key, time_sound, latitude, longitude, height_min, height_max, height_step, station_id FROM parus ',...
+    'WHERE YEAR(time_sound) = ', num2str(lst_years{i_year}), ' AND ',...
+    'MONTH(time_sound) = ', num2str(i_month), ' ORDER BY time_sound'];
+curs = exec(connection, char(query));
+data = get(fetch(curs));
+close(curs);
+
+set(handles.listboxDate, 'String', data.Data(:,2)');
+key = data.Data{get(handles.listboxDate, 'Value'),1};
+plotRow(key);
+loadDBContour();
+plotIRI(1);
+plotEDP();
 
 % --------------------------------------------------------------------
 function itmnu_IRI_Callback(hObject, eventdata, handles)
@@ -1798,9 +1826,7 @@ lst_years = get(hObject, 'String');
 n_lst_years = get(hObject, 'Value');
 
 % Найдём все месяцы в последнем годе
-query = join(string({'select distinct MONTHNAME(time_sound), month(time_sound) from ionosphere.parus where year(time_sound) = ',...
-    num2str(lst_years{n_lst_years}),...
-    ' ORDER BY 2'}));
+query = ['select distinct MONTHNAME(time_sound), month(time_sound) from ionosphere.parus where year(time_sound) = ',num2str(lst_years{n_lst_years}),' ORDER BY 2'];
 curs = exec(connection, char(query));
 data = get(fetch(curs));
 close(curs);
@@ -2409,8 +2435,8 @@ legend('Location','southeast')
 
 
 % --------------------------------------------------------------------
-function Denisenko_Nigth_Nh_hv_IRI_tabl_a_b_c_2_Callback(hObject, eventdata, handles)
-% hObject    handle to Denisenko_Nigth_Nh_hv_IRI_tabl_a_b_c_2 (see GCBO)
+function Denisenko_Nigth_Callback(hObject, eventdata, handles)
+% hObject    handle to Denisenko_Nigth (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -2540,3 +2566,140 @@ plot(f,hv_IRI,'-og','LineWidth',2,'DisplayName','Ionogram with hmF2');
 legend('Location','southeast')
 
 savefig(H,strcat(last_saved_mat,'_a_b_c'));
+
+
+% --------------------------------------------------------------------
+function Denisenko_Nigth_with_x_Callback(hObject, eventdata, handles)
+% hObject    handle to Denisenko_Nigth_with_x (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+global last_saved_mat
+global data data_proc 
+
+index_selected = int32(get(findobj('Tag','listboxDate'),'Value'));
+dat = data.Data(index_selected,:);
+
+alati = dat{3};
+along = dat{4};
+vbeg = 65; % double(dat{5})/1000.;
+vend = double(dat{6})/1000.;
+vstp = 2; % double(dat{7})/1000.;
+timesound = dat{2};
+iyyyy = str2num(timesound(1:4));
+mmdd = str2num([timesound(6:7),timesound(9:10)]);
+
+k = strfind(timesound, ':');
+if k(1) == 13
+    dhour = str2num(timesound(12)) + str2num(timesound(14:15))/60. + str2num(timesound(17:18))/3600.;
+else
+    dhour = str2num(timesound(12:13)) + str2num(timesound(15:16))/60. + str2num(timesound(18:19))/3600.;
+end
+
+% Вначале сохраним MAT-файл для последующей независимой обработки
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+% В процессе корректировки изменяется профиль IRI, но это не отображается
+% на графике!!!
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+itmnu_Save_Real_to_MAT_Callback();
+S = load(last_saved_mat);
+
+% Получим оцифровку o
+tmp = flipud(S.trace_F2o);
+f = tmp(:,1)';
+hv = tmp(:,2)';
+% Получим оцифровку x
+tmp_x = flipud(S.trace_F2x);
+f_x = tmp_x(:,1)';
+hv_x = tmp_x(:,2)';
+
+% Получим подлежащий корректировке IRI профиль
+tmp = S.iri_profile;
+f_ = tmp(:,1);
+for i=1:length(f_)-2 % Поиск локального минимума, соответствующего E-слою
+    if f_(i)<=f_(i+1)&&f_(i+1)>f_(i+2)
+        fmE = f_(i+1);
+        break
+    end
+end
+
+% Определяем частоты fmE построения корректировок
+df = (min(f)-0.01 - fmE)/10;
+foE = fmE:df:(min(f)-0.01);
+foF2 = S.foF2;
+fxF2 = S.fxF2;
+% Не используются в расчётах.
+hmF2 = NaN;
+foF1 = NaN;
+hmF1 = NaN;
+hmE = NaN;
+
+if hv(3)<hv(1)
+   % nE = 3;
+    
+    SE = zeros(length(foE),1);
+    for i = 1:length(foE)
+        [Ne,h,~,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+            foF2, hmF2, foF1, hmF1, foE(i), hmE);
+        
+        % Подготавливаем скорректированный профиль
+        Ne(find(Ne<0)) = 0;
+        fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;
+        % Обрезание по точке максимума, Дополним точкой максимума
+        hoF2 = oarr(2);
+        ind = find( h < hoF2);
+        f_N = [fN(ind), foF2];
+        h_N = [h(ind), hoF2];
+        
+        % Вызываем внешнюю процедуру, учитывающую E-слой
+        [~, SE(i)] = Denisenko_Nigth_Nh_hv_IRI_tabl_a_b_c_2(f, hv, f_N, h_N, S.timesound, 0);
+        %set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(foE(i)), ' MHz']);
+        %close(H);
+    end
+    
+    % Выбираем минимальное SF.
+    ind_E = find(SE == min(SE));
+    new_foEm = foE(ind_E(1));
+else
+    % nE = 1;
+    new_foEm = fmE;
+end
+
+    [Ne,h,~,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, new_foEm, hmE);
+
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+    
+[H, ~, hmF2] = Denisenko_Nigth_Nh_hv_IRI_tabl_a_b_c_2(f, hv, f_N, h_N, S.timesound, 1);
+% set(H, 'Name', [get(H,'Name'), ', fmE = ', num2str(new_foEm), ' MHz']);
+
+% Добавление ещё одного скоректированного профиля..
+% Корректируем IRI еще и на hmF2
+[Ne,h,~,oarr] = iri2016cor(alati,along,iyyyy,mmdd,dhour,vbeg,vend,vstp,...
+                    foF2, hmF2, foF1, hmF1, new_foEm, hmE);
+                
+    % Подготавливаем скорректированный профиль
+    Ne(find(Ne<0)) = 0;
+    fN = round(sqrt(Ne/(1.24*10^10)) * 100)/100;    
+    % Обрезание по точке максимума, Дополним точкой максимума
+    hoF2 = oarr(2);
+    ind = find( h < hoF2);
+    f_N = [fN(ind), foF2];
+    h_N = [h(ind), hoF2];
+% Получение профиля по IRI
+% iri_profile_new = [f_N',h_N'];
+plot(f_N',h_N','-g','LineWidth',2,'DisplayName','IRI with hmF2');
+
+% Обратный расчёт ионограммы
+[hv_IRI] = Denisenko_Nigth_hv_IRI_tabl(f,h_N,f_N);
+plot(f,hv_IRI,'-og','LineWidth',2,'DisplayName','Ionogram with hmF2');
+
+legend('Location','southeast')
+
+savefig(H,strcat(last_saved_mat,'_x'));
