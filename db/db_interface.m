@@ -145,38 +145,47 @@ while i < n
     i = i + 13;
     
     % „тение откликов обыкновенных волн
-    for i_o = 1:FrequencyData.count_o  
-        SignalResponse = readSignalResponse(data,i);
-        i = i + 6;
-        
-        if i + SignalResponse.count_samples-1 > n % если блок битый?
-            break;
+    if FrequencyData.count_o < 255 % зондирование на данном частотном канале не производитс€ (частота блокирована аппаратно)
+        for i_o = 1:FrequencyData.count_o  
+            SignalResponse = readSignalResponse(data,i);
+            i = i + 6;
+
+            if i + SignalResponse.count_samples-1 > n % если блок битый?
+                break;
+            end
+            arr_o = FrequencyData.thereshold_o + typecast(data(i:i+SignalResponse.count_samples-1), 'uint8');
+            % ќпределим номер начальной высоты
+            j = 1 + (SignalResponse.height_begin - uint32(cur.height_min))/uint32(cur.height_step);
+            mat_o(j:j+uint32(SignalResponse.count_samples)-1,frq_i) = arr_o;
+
+            i = i + SignalResponse.count_samples;
         end
-        arr_o = FrequencyData.thereshold_o + typecast(data(i:i+SignalResponse.count_samples-1), 'uint8');
-        % ќпределим номер начальной высоты
-        j = 1 + (SignalResponse.height_begin - uint32(cur.height_min))/uint32(cur.height_step);
-        mat_o(j:j+uint32(SignalResponse.count_samples)-1,frq_i) = arr_o;
-        
-        i = i + SignalResponse.count_samples;
     end
     
     % „тение откликов необыкновенных волн
-    for i_x = 1:FrequencyData.count_x        
-        SignalResponse = readSignalResponse(data,i);
-        i = i + 6;
-        
-        if i + SignalResponse.count_samples-1 > n % если блок битый?
-            break;
+    if FrequencyData.count_x < 255 % зондирование на данном частотном канале не производитс€ (частота блокирована аппаратно)
+        for i_x = 1:FrequencyData.count_x        
+            SignalResponse = readSignalResponse(data,i);
+            i = i + 6;
+
+            if i + SignalResponse.count_samples-1 > n % если блок битый?
+                break;
+            end
+            arr_x = FrequencyData.thereshold_x + typecast(data(i:i+SignalResponse.count_samples-1), 'uint8');
+            % ќпределим номер начальной высоты
+            j = 1 + (SignalResponse.height_begin - uint32(cur.height_min))/uint32(cur.height_step);
+            mat_x(j:j+uint32(SignalResponse.count_samples)-1,frq_i) = arr_x;
+
+            i = i + SignalResponse.count_samples;
         end
-        arr_x = FrequencyData.thereshold_x + typecast(data(i:i+SignalResponse.count_samples-1), 'uint8');
-        % ќпределим номер начальной высоты
-        j = 1 + (SignalResponse.height_begin - uint32(cur.height_min))/uint32(cur.height_step);
-        mat_x(j:j+uint32(SignalResponse.count_samples)-1,frq_i) = arr_x;
-        
-        i = i + SignalResponse.count_samples;
     end
+    
     frq_i = frq_i + 1;
 end
+
+% «атычка, чтобы не выйти за ионограмму.
+mat_o = mat_o(1:h_n, 1:cur.count_freq);
+mat_x = mat_x(1:h_n, 1:cur.count_freq);
 
 % ќпределение режима рисовани€
 mnu_key_o = 0;
@@ -201,21 +210,18 @@ switch mnu_key
         end
         max_a = max(max(mat));
         min_a = min(min(mat));
-        indNaN = find(isnan(mat));
+        indNaN = isnan(mat);
         mat(indNaN) = 0;
         min_a = min(min(mat));
         img = mat2gray((flipud(mat)-min_a)/max_a);
         
     case {3} % совместный рисунок о- и х- компонент
         % наложение о- на х- компоненту
-        ind_o = find(~isnan(mat_o));
-        ind_x = find(~isnan(mat_x));
-        mat = mat_x;
-        %mat(ind_o) = mat_o(ind_o);
+        ind_o = ~isnan(mat_o);
+        ind_x = ~isnan(mat_x);
+        mat = zeros(h_n, cur.count_freq);
         mat(ind_x) = 120;
         mat(ind_o) = 230;
-        ind_x = find(isnan(mat));
-        mat(ind_x) = 0;
         img = mat2gray(flipud(mat));
         
     otherwise % компоненты не выбраны
@@ -708,6 +714,9 @@ function OpenMenuItem_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 global dbName user password connection data
 
+ccursor = get(gcf,'Pointer');
+set(gcf,'Pointer','watch');
+
 % Open DB connection here.
     connection = database(dbName,user,password,...
         'Vendor','MySQL',...
@@ -777,6 +786,7 @@ loadDBContour();
 plotIRI();
 plotEDP();
 
+set(gcf,'Pointer',ccursor);
 
 % --------------------------------------------------------------------
 function ParamMenuItem_Callback(hObject, eventdata, handles)
@@ -799,6 +809,7 @@ user = answer{2};
 password = answer{3};
 
 save('ini', 'dbName', 'user', 'password', '-append');
+OpenMenuItem_Callback(hObject, eventdata, handles);
 
 
 % --------------------------------------------------------------------
