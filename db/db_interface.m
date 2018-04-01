@@ -33,7 +33,7 @@ function varargout = db_interface(varargin)
 %% Инициализации интерфейса
 
 % Begin initialization code - DO NOT EDIT
-global dbName user password
+global dbName user password jar url
 global connection data data_proc
 global last_saved_mat % последний сохраненный файл MAT
 
@@ -712,7 +712,7 @@ function OpenMenuItem_Callback(hObject, eventdata, handles)
 % hObject    handle to OpenMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-global dbName user password connection data
+global dbName user password connection data jar url
 
 ccursor = get(gcf,'Pointer');
 set(gcf,'Pointer','watch');
@@ -721,6 +721,10 @@ set(gcf,'Pointer','watch');
     connection = database(dbName,user,password,...
         'Vendor','MySQL',...
         'Server','localhost');
+    disp(connection.Message);
+    if strcmp(connection.Message,'Unable to find JDBC driver.')
+        connection = database(dbName,user,password,jar,url);
+    end
 
     if ~isempty(connection.Message)
         disp('База с параметрами из файла <ini.mat> не найдена.');
@@ -882,7 +886,7 @@ function db_interface_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to db_interface (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
-global dbName user password url drv
+global dbName user password url jar
 
 % Загрузим инициализационные данные
 load 'ini.mat'

@@ -29,7 +29,11 @@ classdef main < matlab.mixin.SetGet
         % Отрисовываем окно с меню.
             fig_handle = obj.handles.main;
             
+            % Open ini file
+            obj.StructIni = lab705_Ini(obj.FileIni);
+            
             % Меню источников данных
+            % TODO: Place menu items (label/callback) into repository.
             mSource = uimenu(fig_handle,'Label','Источники');
                 uimenu(mSource,'Label','Настройка доступа к БД mySQL...');
                 uimenu(mSource,'Label','Папка с IRI...');
@@ -74,15 +78,14 @@ classdef main < matlab.mixin.SetGet
             user = tmp.user; 
 
             % Сохранение ini-файла.
-            save(hObject.FileIni, ...
-                'PathWork', 'PathIRI', 'PathHelp', ...
-                'dbName', 'password', 'user', ...
-                '-append');
+            save hObject.FileIni PathWork PathIRI PathHelp ...
+                dbName password user '-append';
             
             % Уничтожение окна - выход из программы.
             delete(hObject.handles.main)
         end
-                % Функции реакции на события интерфейса.
+        
+        % Функции реакции на события интерфейса.
         function OpenDir(hObject, src, ~)
             Dir = hObject.StructIni.PathWork;
             Tag = get(src,'Tag');
