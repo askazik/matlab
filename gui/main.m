@@ -5,9 +5,16 @@ classdef main < matlab.mixin.SetGet
     
     properties (SetAccess = private)
         handles; % хэндлы графических объектов класса
-        FileIni = 'ini.mat'; % инициализационный файл
-        StructIni; % инициализационная структура
+        IniGUI = 'ini_gui.mat'; % инициализационный файл
+        IniSources = 'ini_sources.mat'; % инициализационный файл источников
+        StructIniGUI; % инициализационная структура
         FileTag; % тэг файлов данных
+        
+        % Default GUI
+        DefaultGUI = struct(...
+            'PathWork', '',...
+            'PathIRI', '.\iri',...
+            'PathHelp', '.\help');
     end
     
     methods (Access = protected)
@@ -29,14 +36,12 @@ classdef main < matlab.mixin.SetGet
         % Отрисовываем окно с меню.
             fig_handle = obj.handles.main;
             
-            % Open ini file
-            obj.StructIni = lab705_Ini(obj.FileIni);
-            
             % Меню источников данных
             % TODO: Place menu items (label/callback) into repository.
             mSource = uimenu(fig_handle,'Label','Источники');
-                uimenu(mSource,'Label','Настройка доступа к БД mySQL...');
-                uimenu(mSource,'Label','Папка с IRI...');
+                uimenu(mSource,'Label','Управление соединениями...');
+                uimenu(mSource,'Label','Папка с IRI...',...
+                    'Callback', {@(src, event)OpenIRIDir(obj, src, event)});
                 uimenu(mSource,'Label','Ионограммы ИПГ (mySQL)',...
                     'Separator','on','Tag','0');
                 uimenu(mSource,'Label','Ионограммы (картинки)...',...
@@ -56,8 +61,7 @@ classdef main < matlab.mixin.SetGet
                     'Tag','5');
                 uimenu(mSource,'Label','Выход',...
                     'Separator','on','Accelerator','Q',...
-                    'Callback', {@(src, event)Close(obj, src, event)},...
-                    'Tag','6');
+                    'Callback', {@(src, event)Close(obj, src, event)});
             
             % Меню помощи
             mHelp = uimenu(fig_handle,'Label','Помощь');
@@ -69,25 +73,17 @@ classdef main < matlab.mixin.SetGet
         
         % Функции реакции на события интерфейса.
         function Close(hObject, ~, ~)
-            tmp = hObject.StructIni;
-            PathWork = tmp.PathWork;
-            PathIRI = tmp.PathIRI;
-            PathHelp = tmp.PathHelp;
-            dbName = tmp.dbName;
-            password = tmp.password;
-            user = tmp.user; 
-
-            % Сохранение ini-файла.
-            save hObject.FileIni PathWork PathIRI PathHelp ...
-                dbName password user '-append';
-            
-            % Уничтожение окна - выход из программы.
-            delete(hObject.handles.main)
+            hObject.save_gui_ini(hObject.IniGUI);
+            children = hObject.handles.children;
+            for i=1:length(children)
+                delete(children(i))
+            end
+            delete(hObject);
         end
-        
+               
         % Функции реакции на события интерфейса.
         function OpenDir(hObject, src, ~)
-            Dir = hObject.StructIni.PathWork;
+            Dir = hObject.StructIniGUI.PathWork;
             Tag = get(src,'Tag');
             Title = get(src,'Label');
             
@@ -102,30 +98,69 @@ classdef main < matlab.mixin.SetGet
             end
         end
         
-        function ini(hObject)
-            % Чтение инициализационного файла. Настройка соединения с БД.
-            S = load(hObject.FileIni);
-            
-            if ~isfield(S,'PathWork') % путь к папке с файлами измерений
-                S.PathWork = '';
+        function OpenIRIDir(hObject, ~, ~)
+            Dir = hObject.StructIniGUI.PathIRI;
+            Title = 'Choose directory of the IRI files...';
+            Dir = uigetdir(Dir,Title);
+            if ~isequal(Dir,0)
+                hObject.StructIniGUI.PathIRI = Dir;
             end
-            if ~isfield(S,'PathIRI') % путь к папке с файлами IRI
-                S.PathIRI = '.\iri';
+        end        
+        
+        % Create default GUI init file.
+        function set_default_gui(hObject)
+            S = hObject.DefaultGUI;
+            fields = fieldnames(S);
+            for i = 1:numel(fields)
+                hObject.StructIniGUI.(fields{i}) = S.(fields{i});
             end
-            if ~isfield(S,'PathHelp') % путь к папке с файлами помощи
-                S.PathHelp = '.\help';
+            msg = strcat('Set default GUI init parameters.');
+            warning(msg)
+        end
+        
+        % Verify init file structure.
+        function verify_gui_ini(hObject)
+            S = hObject.DefaultGUI;
+            S_cur = hObject.StructIniGUI;
+            fields = fieldnames(S);
+            for i = 1:numel(fields)
+                if ~isfield(S_cur, fields{i})
+                    hObject.StructIniGUI.(fields{i}) = S.(fields{i});
+                    msg = strcat('Create and fill not existed init GUI field. <',...
+                        fields{i}, '> = ', S.(fields{i}));
+                    warning(msg)
+                end
             end
-            if ~isfield(S,'dbName')
-                S.dbName = 'ionosphere';
+        end
+        
+        % Save GUI structure.
+        function save_gui_ini(hObject, fname)
+            S = orderfields(hObject.StructIniGUI);
+            fields = fieldnames(S);
+            for i = 1:numel(fields)
+                evalc([fields{i}, ' = ''', S.(fields{i}),'''']);
+                if i == 1
+                    save(fname, fields{i});
+                else
+                    save(fname, fields{i},'-append');
+                end
             end
-            if ~isfield(S,'password')
-                S.password = '27670977';
+        end
+        
+        function ini_gui(hObject)
+            % Open GUI init file if exist.
+            try
+                hObject.StructIniGUI = load(hObject.IniGUI);
+            catch ME
+                [filename, pathname] = uigetfile('*.mat', ME.message);
+                if isequal(filename,0)
+                    hObject.set_default_gui()
+                else
+                    hObject.IniGUI = fullfile(pathname, filename);
+                end
             end
-            if ~isfield(S,'user')
-                S.user = 'root';
-            end
-            
-            hObject.StructIni = S;
+            hObject.verify_gui_ini();
+            hObject.save_gui_ini(hObject.IniGUI);
         end
         
         function About(~, ~, ~)
@@ -155,7 +190,7 @@ classdef main < matlab.mixin.SetGet
             obj = obj@matlab.mixin.SetGet();
             
             %% Post Initialization %%
-            obj.ini();
+            obj.ini_gui();
             obj.gui();
             obj.CreateMenuBar();
             
@@ -166,6 +201,18 @@ classdef main < matlab.mixin.SetGet
                 OutPos(2)+OutPos(4),...
                 OutPos(3),OutPos(4)-InPos(4)];
             set(obj.handles.main,'OuterPosition', pos);
+        end
+        
+        function delete(obj)
+            %remove the closerequestfcn from the figure, this prevents an
+            %infitie loop with the following delete command
+            set(obj.handles.main,  'closerequestfcn', '');
+            % Уничтожение окна - выход из программы.
+            delete(obj.handles.main);
+            %clear out the pointer to the figure - prevents memory leaks
+            obj.handles = [];
+                        
+            disp('The successful completion of the program.')
         end
     end
 end
