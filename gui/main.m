@@ -74,9 +74,11 @@ classdef main < matlab.mixin.SetGet
         % Функции реакции на события интерфейса.
         function Close(hObject, ~, ~)
             hObject.save_gui_ini(hObject.IniGUI);
-            children = hObject.handles.children;
-            for i=1:length(children)
-                delete(children(i))
+            if isfield('hObject.handles', 'children')
+                children = hObject.handles.children;
+                for i=1:length(children)
+                    delete(children(i))
+                end
             end
             delete(hObject);
         end
