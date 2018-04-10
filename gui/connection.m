@@ -1,32 +1,44 @@
-classdef choose_list_item < handle
-%CHOOSE_LIST_ITEM Draw dialog with possibility of an item choose.
-%   Detailed explanation goes here
+classdef connection < handle
+%connection Draw dialog for modify of connection parameters.
+%   Modify dbname/jar/pwd/url/user params for DB connection.
 %
 % Created by Alexei Skazik (c)                                   Apr-2018
 
     properties (SetAccess=private)
-        d % dialog handle
-        txt % label handle
-        popup % popup list handle
-        btn % button handle
-        items_list % items list of string cells
-        choosed_item
-        choosed_item_number
-        Label = 'Choose an item from popup list:';
+        handles; % хэндлы графических объектов класса
+        FileName = 'ini_sources.mat';
+        Ini; % object of class db_ini
+        Tag = 'my'; % name of connection / structure name
+        Connection; % structure of connection parameters
+        Title = 'Create/Modify connection...'; % заголовок окна
+        
+        % Default connection
+        DefaultConnection = struct(...
+            'dbname', 'test',...
+            'jar', '',...
+            'url', 'jdbc:mysql://localhost:3306',...
+            'user', 'test',...
+            'pwd', '');
     end
     
     methods (Access = public)
         
-        function choice = getChoice(obj)
-            choice = obj.choosed_item;
-        end
-        
-        function obj = choose_list_item(list_of_cells, preferred_item, label)
+        function obj = connection(fname, tag)
             
-            obj.items_list = list_of_cells;
+            % test for arguments
+            if exist('tag','var') && ~strcmp(tag,'') && ~isempty(tag)
+                obj.Tag = tag;
+            end            
+            if exist('fname','var') && ~strcmp(fname,'') && ~isempty(fname)
+                obj.FileName = fname;
+                obj.Ini = db_ini(obj.FileName, obj.Tag);
+                obj.Connection = obj.Ini.getIniStructureForTag(obj,tag);
+            else
+                
+            end
             
-            obj.d = dialog('Position',[300 300 220 150],...
-                'Name','Choose dialog...');
+            obj.handles.dialog = dialog('Position',[300 300 220 400],...
+                'Name',obj.Title);
             obj.txt = uicontrol('Parent',obj.d,...
                 'Style','text',...
                 'Position',[10 80 210 40],...
@@ -107,4 +119,6 @@ classdef choose_list_item < handle
     end
     
 end
+
+
 

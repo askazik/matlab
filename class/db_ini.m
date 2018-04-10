@@ -2,7 +2,7 @@ classdef db_ini < matlab.mixin.SetGet
 % db_ini - класс инициализационного файла для подключения к базе данных.
 % Если файл отсутствует попытаемся корректно создать его.
 %
-% Created by Alexy Skazik (c)                                   Feb-2018
+% Created by Alexei Skazik (c)                                   Feb-2018
     
     properties (SetAccess=private, AbortSet=true)
         IniName; % имя инициализационного файла
@@ -25,7 +25,7 @@ classdef db_ini < matlab.mixin.SetGet
             
             % Check database tag
             if ~exist('tag','var')|| strcmp(tag,'') || isempty(tag)
-                tag = 'mysql';
+                tag = 'my';
             end
             
             % Check of ini file existence

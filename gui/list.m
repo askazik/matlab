@@ -1,7 +1,7 @@
 classdef list < matlab.mixin.SetGet
 % list - класс окна для представления списка результатов эксперимента.
 %
-% Created by Alexy Skazik (c)                                   Feb-2018
+% Created by Alexei Skazik (c)                                   Feb-2018
     
     properties (SetAccess = private)
         handles; % хэндлы графических объектов класса

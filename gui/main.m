@@ -1,7 +1,7 @@
 classdef main < matlab.mixin.SetGet
 % main - класс управл€ющего окна дл€ вызова специализированных окон.
 %
-% Created by Alexy Skazik (c)                                   Feb-2018
+% Created by Alexei Skazik (c)                                   Feb-2018
     
     properties (SetAccess = private)
         handles; % хэндлы графических объектов класса

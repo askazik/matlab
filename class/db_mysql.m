@@ -2,7 +2,7 @@ classdef db_mysql < matlab.mixin.SetGet
 % db_mysql - класс соединения с БД mySQL.
 % Если соединение отсутствует попытаемся настроить его.
 %
-% Created by Alexy Skazik (c)                                   Feb-2018
+% Created by Alexei Skazik (c)                                   Feb-2018
     
     properties (SetAccess = private)
         IniStructure; % инициализационная структура
